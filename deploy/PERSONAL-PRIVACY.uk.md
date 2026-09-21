@@ -20,7 +20,7 @@
 
 ## Coolify / Docker Compose
 
-1. Використовуйте Git-репозиторій цього форку, тип Docker Compose, файл `deploy/docker-compose.personal.yml` (контекст збірки — корінь репозиторію).
+1. Використовуйте Git-репозиторій цього форку, тип Docker Compose, файл `deploy/docker-compose.personal.yml`, Base Directory `/`. Coolify задає корінь репозиторію через `--project-directory`, тому `build.context: .` указує на корінь, де лежить Dockerfile. Для локального запуску з кореня також явно вкажіть: `docker compose --project-directory . -f deploy/docker-compose.personal.yml up -d --build`.
 2. Задайте секрети в Coolify: `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `JWT_SECRET`, `TOTP_ENCRYPTION_KEY`. Для останніх двох згенеруйте **окремі** значення `openssl rand -hex 32`. Не комітьте секрети.
 3. Призначте сервісу `sub2api` HTTPS-домен і внутрішній порт **8080**. PostgreSQL/Redis доступні лише у внутрішній мережі. Прив'язка портів до VPS навмисно відсутня.
 4. Запускайте зі свіжими томами. Старі БД, Redis, Docker-логи й резервні копії ця зміна не стирає і не очищає. Якщо стара версія вже працювала з реальними запитами, їх потрібно окремо перевірити/видалити після збереження потрібних ключів і налаштувань.

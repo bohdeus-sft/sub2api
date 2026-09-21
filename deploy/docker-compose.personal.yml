@@ -1,8 +1,10 @@
 # Build from this fork. Do not replace the build with the upstream :latest image.
+# Coolify sets --project-directory to the repository root. For local Compose,
+# also pass --project-directory . from the repository root.
 services:
   sub2api:
     build:
-      context: ..
+      context: .
       dockerfile: Dockerfile
       args:
         GOPROXY: https://proxy.golang.org,direct
