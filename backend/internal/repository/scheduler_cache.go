@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"log/slog"
 	"strconv"
 	"time"
@@ -827,6 +828,8 @@ func (c *schedulerCache) writeAccountIDs(ctx context.Context, accounts []service
 }
 
 func marshalSchedulerCacheAccount(account service.Account) ([]byte, []byte, error) {
+	account.ErrorMessage = privacy.Diagnostic(account.ErrorMessage)
+	account.TempUnschedulableReason = privacy.Diagnostic(account.TempUnschedulableReason)
 	fullPayload, err := json.Marshal(account)
 	if err != nil {
 		return nil, nil, fmt.Errorf("marshal account: %w", err)

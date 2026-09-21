@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"io"
 	"net"
 	"net/http"
@@ -50,6 +51,9 @@ func NewPromptService(
 }
 
 func (s *PromptService) Start(ctx context.Context) error {
+	if privacy.Enabled() {
+		return nil
+	}
 	if s == nil || s.config == nil || s.runner == nil {
 		return errors.New("prompt audit service unavailable")
 	}
@@ -101,6 +105,9 @@ func (s *PromptService) Shutdown(ctx context.Context) error {
 }
 
 func (s *PromptService) EffectiveMode() Mode {
+	if privacy.Enabled() {
+		return ModeOff
+	}
 	if s == nil || s.config == nil {
 		return ModeOff
 	}
@@ -140,6 +147,9 @@ func (s *PromptService) Enqueue(_ context.Context, req Request) error {
 }
 
 func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecision, error) {
+	if privacy.Enabled() {
+		return &PromptDecision{Kind: DecisionAllow, AllowNextStage: true}, nil
+	}
 	if s == nil || s.config == nil || s.evaluator == nil {
 		return nil, &GuardError{Code: ErrorCodeUnavailable}
 	}
@@ -169,6 +179,9 @@ func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecis
 func (s *PromptService) GetConfig() (PublicConfig, error) { return s.config.Public() }
 
 func (s *PromptService) SaveConfig(ctx context.Context, req UpdateConfigRequest, actorID int64) (PublicConfig, error) {
+	if privacy.Enabled() {
+		return PublicConfig{}, privacy.ErrDisabled
+	}
 	return s.config.Save(ctx, req, actorID)
 }
 
@@ -230,6 +243,9 @@ type ProbeRequest struct {
 }
 
 func (s *PromptService) Probe(ctx context.Context, request ProbeRequest) ProbeResult {
+	if privacy.Enabled() {
+		return ProbeResult{Status: "disabled", Message: privacy.ErrDisabled.Error()}
+	}
 	started := s.clock.Now()
 	endpoint, tokenApplied, err := s.resolveProbeEndpoint(request.Endpoint)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -67,6 +68,12 @@ func NewTempUnschedCache(rdb *redis.Client) service.TempUnschedCache {
 
 // SetTempUnsched 设置临时不可调度状态（只延长不缩短）
 func (c *tempUnschedCache) SetTempUnsched(ctx context.Context, accountID int64, state *service.TempUnschedState) error {
+	if privacy.Enabled() && state != nil {
+		safe := *state
+		safe.ErrorMessage = privacy.Diagnostic(safe.ErrorMessage)
+		state = &safe
+	}
+
 	key := fmt.Sprintf("%s%d", tempUnschedPrefix, accountID)
 
 	stateJSON, err := json.Marshal(state)

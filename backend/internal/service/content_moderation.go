@@ -24,6 +24,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/httpclient"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/servertiming"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 )
 
 const (
@@ -605,7 +606,7 @@ func NewContentModerationService(
 		asyncQueue:           make(chan contentModerationTask, maxContentModerationQueueSize),
 		keyHealth:            make(map[string]*contentModerationKeyHealth),
 	}
-	if settingRepo != nil && repo != nil {
+	if !privacy.Enabled() && settingRepo != nil && repo != nil {
 		for i := 0; i < svc.workerCount; i++ {
 			go svc.worker(i)
 		}
@@ -623,6 +624,9 @@ func (s *ContentModerationService) GetConfig(ctx context.Context) (*ContentModer
 }
 
 func (s *ContentModerationService) UpdateConfig(ctx context.Context, input UpdateContentModerationConfigInput) (*ContentModerationConfigView, error) {
+	if privacy.Enabled() {
+		return nil, privacy.ErrDisabled
+	}
 	cfg, err := s.loadConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -727,6 +731,9 @@ func (s *ContentModerationService) UpdateConfig(ctx context.Context, input Updat
 }
 
 func (s *ContentModerationService) TestAPIKeys(ctx context.Context, input TestContentModerationAPIKeysInput) (*TestContentModerationAPIKeysResult, error) {
+	if privacy.Enabled() {
+		return nil, privacy.ErrDisabled
+	}
 	cfg, err := s.loadConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -808,6 +815,9 @@ func (s *ContentModerationService) TestAPIKeys(ctx context.Context, input TestCo
 }
 
 func (s *ContentModerationService) Check(ctx context.Context, input ContentModerationCheckInput) (*ContentModerationDecision, error) {
+	if privacy.Enabled() {
+		return &ContentModerationDecision{Allowed: true}, nil
+	}
 	allow := &ContentModerationDecision{Allowed: true, Action: ContentModerationActionAllow}
 	if s == nil || s.settingRepo == nil || s.repo == nil {
 		slog.Info("content_moderation.skip_unavailable",
@@ -1743,6 +1753,9 @@ func (s *ContentModerationService) callModeration(ctx context.Context, cfg *Cont
 }
 
 func (s *ContentModerationService) callModerationOnceWithInput(ctx context.Context, cfg *ContentModerationConfig, apiKey string, input any, httpStatus *int) (*moderationAPIResult, error) {
+	if privacy.Enabled() {
+		return nil, privacy.ErrDisabled
+	}
 	if cfg.Engine == ContentModerationEngineTypeSafe {
 		return s.callTypeSafeModeration(ctx, cfg, apiKey, input, httpStatus)
 	}
@@ -1900,6 +1913,9 @@ func (s *ContentModerationService) buildLog(input ContentModerationCheckInput, c
 }
 
 func (s *ContentModerationService) persistContentModerationLog(ctx context.Context, cfg *ContentModerationConfig, log *ContentModerationLog, hashText string, recordHash bool, applySideEffects bool) {
+	if privacy.Enabled() {
+		return
+	}
 	if s == nil || log == nil {
 		return
 	}
@@ -3011,6 +3027,9 @@ type CyberPolicyRecordInput struct {
 // 受 risk_control_enabled 总开关和内容审核 group/model scope 约束，
 // 不受内容审核 Enabled/Mode/sample 约束。
 func (s *ContentModerationService) RecordCyberPolicyEvent(ctx context.Context, in CyberPolicyRecordInput) {
+	if privacy.Enabled() {
+		return
+	}
 	if s == nil || s.repo == nil {
 		return
 	}

@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -131,6 +132,9 @@ func CurrentLevel() string {
 }
 
 func SetSink(sink Sink) {
+	if privacy.Enabled() {
+		return
+	}
 	currentSink.Store(sinkState{sink: sink})
 }
 
@@ -149,6 +153,9 @@ func loadSink() Sink {
 // WriteSinkEvent 直接写入日志 sink，不经过全局日志级别门控。
 // 用于需要“可观测性入库”与“业务输出级别”解耦的场景（例如 ops 系统日志索引）。
 func WriteSinkEvent(level, component, message string, fields map[string]any) {
+	if privacy.Enabled() {
+		return
+	}
 	sink := loadSink()
 	if sink == nil {
 		return
@@ -243,6 +250,9 @@ func bridgeSlogLocked() {
 }
 
 func buildLogger(options InitOptions) (*zap.Logger, zap.AtomicLevel, error) {
+	if privacy.Enabled() {
+		return zap.NewNop(), zap.NewAtomicLevelAt(zap.ErrorLevel), nil
+	}
 	level, _ := parseLevel(options.Level)
 	atomic := zap.NewAtomicLevelAt(level)
 

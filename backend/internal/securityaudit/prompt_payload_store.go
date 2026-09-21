@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -25,6 +26,9 @@ func NewRedisPayloadStore(client *redis.Client) *RedisPayloadStore {
 }
 
 func (s *RedisPayloadStore) Set(ctx context.Context, jobID int64, scanText string, ttl time.Duration) error {
+	if privacy.Enabled() {
+		return privacy.ErrDisabled
+	}
 	if s == nil || s.client == nil {
 		return fmt.Errorf("prompt audit payload store unavailable")
 	}

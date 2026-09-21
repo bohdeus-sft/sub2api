@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -118,7 +119,7 @@ func (c *driveClient) GetStorageQuota(ctx context.Context, accessToken, proxyURL
 		if statusText == "" {
 			statusText = resp.Status
 		}
-		fmt.Printf("[DriveClient] Drive API error: status=%d, msg=%s\n", resp.StatusCode, statusText)
+		log.Printf("[DriveClient] Drive API error: status=%d, msg=%s\n", resp.StatusCode, statusText)
 		// 只返回通用错误
 		return nil, fmt.Errorf("drive API error: status %d", resp.StatusCode)
 	}

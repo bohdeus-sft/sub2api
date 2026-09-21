@@ -525,18 +525,7 @@ const routes: RouteRecordRaw[] = [
       descriptionKey: 'admin.accounts.description'
     }
   },
-  {
-    path: '/admin/plugins',
-    name: 'AdminPlugins',
-    component: () => import('@/views/admin/PluginsView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Plugin Management',
-      titleKey: 'admin.plugins.title',
-      descriptionKey: 'admin.plugins.description'
-    }
-  },
+
   {
     path: '/admin/announcements',
     name: 'AdminAnnouncements',
@@ -597,32 +586,8 @@ const routes: RouteRecordRaw[] = [
       descriptionKey: 'admin.settings.description'
     }
   },
-  {
-    path: '/admin/risk-control',
-    name: 'AdminRiskControl',
-    component: () => import('@/views/admin/RiskControlView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Risk Control',
-      titleKey: 'admin.riskControl.title',
-      descriptionKey: 'admin.riskControl.description',
-      requiresRiskControl: true
-    }
-  },
-  {
-    path: '/admin/prompt-audit',
-    name: 'AdminPromptAudit',
-    component: () => import('@/features/prompt-audit/PromptAuditView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Prompt Audit',
-      titleKey: 'admin.promptAudit.title',
-      descriptionKey: 'admin.promptAudit.description',
-      requiresRiskControl: true
-    }
-  },
+
+
   {
     path: '/admin/usage',
     name: 'AdminUsage',

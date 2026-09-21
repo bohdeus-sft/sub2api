@@ -3,6 +3,7 @@ package securityaudit
 import (
 	"context"
 	"errors"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"net/http"
 	"sync"
 )
@@ -27,6 +28,9 @@ func NewCoordinator(legacy LegacyEngine, prompt PromptEngine) *Coordinator {
 }
 
 func (c *Coordinator) Check(ctx context.Context, req Request) Decision {
+	if privacy.Enabled() {
+		return allowDecision(nil, nil)
+	}
 	if c == nil {
 		return allowDecision(nil, nil)
 	}

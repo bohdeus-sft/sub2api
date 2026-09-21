@@ -10,6 +10,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"go.uber.org/zap"
 )
 
@@ -88,6 +89,9 @@ func (s *ImageStorageSettingService) Resolver() ImageStorageResolver {
 }
 
 func (s *ImageStorageSettingService) resolve() (*ImageResultUploader, bool) {
+	if privacy.Enabled() {
+		return nil, false
+	}
 	if s == nil {
 		return nil, false
 	}

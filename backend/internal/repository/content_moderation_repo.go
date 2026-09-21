@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"strings"
 	"time"
 
@@ -21,6 +22,9 @@ func NewContentModerationRepository(db *sql.DB) service.ContentModerationReposit
 }
 
 func (r *contentModerationRepository) CreateLog(ctx context.Context, log *service.ContentModerationLog) error {
+	if privacy.Enabled() {
+		return nil
+	}
 	if log == nil {
 		return nil
 	}

@@ -115,6 +115,8 @@
             {{ t('customPage.openInNewTab') }}
           </a>
           <iframe
+            referrerpolicy="no-referrer"
+            sandbox="allow-scripts allow-forms allow-popups"
             :src="embeddedUrl"
             class="custom-embed-frame"
             allowfullscreen
@@ -245,8 +247,6 @@ const embeddedUrl = computed(() => {
   if (!menuItem.value || isMarkdownMode.value) return ''
   return buildEmbeddedUrl(
     menuItem.value.url,
-    authStore.user?.id,
-    authStore.token,
     pageTheme.value,
     locale.value,
   )

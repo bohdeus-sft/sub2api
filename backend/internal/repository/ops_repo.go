@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/lib/pq"
 )
@@ -65,6 +66,9 @@ func NewOpsRepository(db *sql.DB) service.OpsRepository {
 }
 
 func (r *opsRepository) InsertErrorLog(ctx context.Context, input *service.OpsInsertErrorLogInput) (int64, error) {
+	if privacy.Enabled() {
+		return 0, nil
+	}
 	if r == nil || r.db == nil {
 		return 0, fmt.Errorf("nil ops repository")
 	}
@@ -85,6 +89,9 @@ func (r *opsRepository) InsertErrorLog(ctx context.Context, input *service.OpsIn
 }
 
 func (r *opsRepository) BatchInsertErrorLogs(ctx context.Context, inputs []*service.OpsInsertErrorLogInput) (int64, error) {
+	if privacy.Enabled() {
+		return 0, nil
+	}
 	if r == nil || r.db == nil {
 		return 0, fmt.Errorf("nil ops repository")
 	}
@@ -634,6 +641,9 @@ WHERE id = $1`
 }
 
 func (r *opsRepository) BatchInsertSystemLogs(ctx context.Context, inputs []*service.OpsInsertSystemLogInput) (int64, error) {
+	if privacy.Enabled() {
+		return 0, nil
+	}
 	if r == nil || r.db == nil {
 		return 0, fmt.Errorf("nil ops repository")
 	}

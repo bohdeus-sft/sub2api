@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/spf13/viper"
 	"golang.org/x/net/http/httpguts"
 )
@@ -1971,6 +1972,16 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 		)
 	}
 
+	// This fork's personal policy cannot be relaxed by config files or env.
+	if privacy.Enabled() {
+		cfg.Gateway.LogUpstreamErrorBody = false
+		cfg.Gateway.OpenAIWS.PayloadLogSampleRate = 0
+		cfg.BatchImage.Enabled = false
+		cfg.BatchImage.QueueEnabled = false
+		cfg.ImageStorage.Enabled = false
+		cfg.Log.Output.ToFile = false
+		cfg.Log.Output.ToStdout = false
+	}
 	return &cfg, nil
 }
 

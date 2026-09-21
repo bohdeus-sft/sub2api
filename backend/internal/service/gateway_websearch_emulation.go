@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/websearch"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -40,6 +41,9 @@ var webSearchManagerPtr atomic.Pointer[websearch.Manager]
 
 // SetWebSearchManager wires the websearch.Manager into the gateway (goroutine-safe).
 func SetWebSearchManager(m *websearch.Manager) {
+	if privacy.Enabled() {
+		return
+	}
 	webSearchManagerPtr.Store(m)
 }
 
