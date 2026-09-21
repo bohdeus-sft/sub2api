@@ -1,3 +1,5 @@
+> **Особиста збірка:** використовуйте лише `deploy/docker-compose.personal.yml` зі збіркою цього форку. Старі інструкції Docker нижче належать upstream і не застосовуються. [Актуальна інструкція](deploy/PERSONAL-PRIVACY.uk.md).
+
 <div align="center">
 
 <img src="assets/logo.svg" alt="Sub2API Logo" width="128" />

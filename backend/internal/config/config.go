@@ -1980,7 +1980,7 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 		cfg.BatchImage.QueueEnabled = false
 		cfg.ImageStorage.Enabled = false
 		cfg.Log.Output.ToFile = false
-		cfg.Log.Output.ToStdout = false
+		cfg.Log.Output.ToStdout = true
 	}
 	return &cfg, nil
 }

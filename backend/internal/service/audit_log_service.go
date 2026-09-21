@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"go.uber.org/zap"
 )
 
 const (
@@ -143,8 +145,7 @@ func (s *AuditLogService) runWriter() {
 		cancel()
 		if err != nil {
 			atomic.AddUint64(&s.writeFailed, uint64(len(batch)))
-			_, _ = fmt.Fprintf(os.Stderr, "time=%s level=WARN msg=\"audit log flush failed\" err=%v batch=%d\n",
-				time.Now().Format(time.RFC3339Nano), err, len(batch))
+			logger.L().Warn("audit log flush failed", zap.Error(err), zap.Int("batch", len(batch)))
 		} else {
 			atomic.AddUint64(&s.writtenCount, uint64(inserted))
 		}
@@ -226,8 +227,7 @@ func (s *AuditLogService) runRetentionOnce() {
 	for {
 		deleted, err := s.repo.DeleteBefore(ctx, cutoff, auditRetentionBatchSize)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "time=%s level=WARN msg=\"audit log retention cleanup failed\" err=%v\n",
-				time.Now().Format(time.RFC3339Nano), err)
+			logger.L().Warn("audit log retention cleanup failed", zap.Error(err))
 			return
 		}
 		if deleted == 0 {

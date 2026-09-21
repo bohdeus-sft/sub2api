@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/gin-gonic/gin"
@@ -24,6 +25,9 @@ func Recovery() gin.HandlerFunc {
 		writer = io.Discard
 	}
 	return gin.CustomRecoveryWithWriter(writer, func(c *gin.Context, recovered any) {
+		if privacy.Enabled() {
+			logger.L().Error("http handler panic")
+		}
 		recoveredErr, _ := recovered.(error)
 
 		if isBrokenPipe(recoveredErr) {

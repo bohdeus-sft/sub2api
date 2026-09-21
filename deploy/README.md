@@ -1,3 +1,5 @@
+> **Особиста збірка:** використовуйте лише `deploy/docker-compose.personal.yml` зі збіркою цього форку. Старі інструкції Docker нижче належать upstream і не застосовуються. [Актуальна інструкція](PERSONAL-PRIVACY.uk.md).
+
 # Sub2API Deployment Files
 
 This directory contains files for deploying Sub2API on Linux servers and Apple-silicon Macs.

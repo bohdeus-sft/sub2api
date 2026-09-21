@@ -19,7 +19,10 @@ services:
     tmpfs:
       - /tmp:rw,nosuid,nodev,noexec,size=128m
     logging:
-      driver: none
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - personal_config:/app/data
     environment:
@@ -70,9 +73,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     volumes:
       - personal_database:/var/lib/postgresql/data
-    command: ["postgres", "-c", "log_statement=none", "-c", "log_min_error_statement=panic", "-c", "log_parameter_max_length_on_error=0"]
+    command: ["postgres", "-c", "log_statement=none", "-c", "log_min_messages=fatal", "-c", "log_error_verbosity=terse", "-c", "log_min_error_statement=panic", "-c", "log_parameter_max_length_on_error=0"]
     logging:
-      driver: none
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
     ulimits:
       core: 0
     networks:
@@ -93,7 +99,10 @@ services:
     tmpfs:
       - /data:rw,nosuid,nodev,noexec,size=16m
     logging:
-      driver: none
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
     ulimits:
       core: 0
     networks:

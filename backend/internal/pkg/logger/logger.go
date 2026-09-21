@@ -250,9 +250,6 @@ func bridgeSlogLocked() {
 }
 
 func buildLogger(options InitOptions) (*zap.Logger, zap.AtomicLevel, error) {
-	if privacy.Enabled() {
-		return zap.NewNop(), zap.NewAtomicLevelAt(zap.ErrorLevel), nil
-	}
 	level, _ := parseLevel(options.Level)
 	atomic := zap.NewAtomicLevelAt(level)
 
@@ -275,6 +272,12 @@ func buildLogger(options InitOptions) (*zap.Logger, zap.AtomicLevel, error) {
 		enc = zapcore.NewConsoleEncoder(encoderCfg)
 	} else {
 		enc = zapcore.NewJSONEncoder(encoderCfg)
+	}
+
+	if privacy.Enabled() {
+		// Always visible, bounded by Docker rotation. No file or database sink.
+		core := &privacyCore{core: zapcore.NewCore(zapcore.NewJSONEncoder(encoderCfg), zapcore.Lock(os.Stdout), atomic)}
+		return zap.New(core, zap.AddCaller()), atomic, nil
 	}
 
 	sinkCore := newSinkCore()

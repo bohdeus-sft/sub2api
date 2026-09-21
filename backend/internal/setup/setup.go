@@ -15,6 +15,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/Wei-Shaw/sub2api/internal/repository"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -431,6 +432,9 @@ func createAdminUser(cfg *SetupConfig) (bool, string, error) {
 	}
 
 	if strings.TrimSpace(cfg.Admin.Password) == "" {
+		if privacy.Enabled() {
+			return false, "", errors.New("ADMIN_PASSWORD must be set for personal deployment; generated passwords cannot be printed safely")
+		}
 		password, genErr := generateSecret(16)
 		if genErr != nil {
 			return false, "", fmt.Errorf("failed to generate admin password: %w", genErr)

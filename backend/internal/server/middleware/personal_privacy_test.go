@@ -2,17 +2,25 @@ package middleware
 
 import (
 	"bytes"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/privacy/testutil"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
 func TestPersonalPrivacy(t *testing.T) {
 	testutil.Run(t, func(t *testing.T) {
 		gin.SetMode(gin.TestMode)
+		output, err := os.CreateTemp(t.TempDir(), "safe-logs")
+		require.NoError(t, err)
+		originalStdout := os.Stdout
+		os.Stdout = output
+		defer func() { os.Stdout = originalStdout; output.Close() }()
+		require.NoError(t, logger.Init(logger.InitOptions{}))
 		var logs bytes.Buffer
 		original := gin.DefaultErrorWriter
 		gin.DefaultErrorWriter = &logs
@@ -46,5 +54,10 @@ func TestPersonalPrivacy(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, w.Code)
 		require.Empty(t, logs.String())
 		require.NotContains(t, w.Body.String(), "private")
+		logger.Sync()
+		captured, err := os.ReadFile(output.Name())
+		require.NoError(t, err)
+		require.Contains(t, string(captured), "http handler panic")
+		require.NotContains(t, string(captured), "private")
 	})
 }
