@@ -31,6 +31,35 @@ func (r *accountUsageCodexProbeRepo) SetRateLimited(_ context.Context, _ int64, 
 	return nil
 }
 
+func TestAccountUsageService_GetOpenAIUsage_UsesSnapshotTimestamp(t *testing.T) {
+	t.Parallel()
+	now := time.Now().UTC().Truncate(time.Second)
+	observedAt := now.Add(-time.Hour)
+	for _, stamp := range []string{observedAt.Format(time.RFC3339), "", "invalid"} {
+		t.Run(stamp, func(t *testing.T) {
+			// Complete, unexpired windows avoid an upstream probe.
+			account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: map[string]any{
+				"codex_5h_used_percent":  10.0,
+				"codex_5h_reset_at":      now.Add(time.Hour).Format(time.RFC3339),
+				"codex_7d_used_percent":  20.0,
+				"codex_7d_reset_at":      now.Add(24 * time.Hour).Format(time.RFC3339),
+				"codex_usage_updated_at": stamp,
+			}}
+			usage, err := (&AccountUsageService{}).getOpenAIUsage(context.Background(), account, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if stamp == observedAt.Format(time.RFC3339) {
+				if usage.UpdatedAt == nil || !usage.UpdatedAt.Equal(observedAt) {
+					t.Fatalf("updated_at = %v, want snapshot time %v", usage.UpdatedAt, observedAt)
+				}
+			} else if usage.UpdatedAt != nil {
+				t.Fatalf("updated_at = %v, want unknown for missing/invalid snapshot timestamp", usage.UpdatedAt)
+			}
+		})
+	}
+}
+
 func TestShouldRefreshOpenAICodexSnapshot(t *testing.T) {
 	t.Parallel()
 

@@ -326,6 +326,11 @@
               @usage-loaded="handleAccountUsageLoaded(row.id, $event)"
             />
           </template>
+          <template #cell-usage_updated_at="{ row }">
+            <span class="whitespace-nowrap text-sm text-gray-500 dark:text-dark-400">
+              {{ formatDateTime(getUsageUpdatedAt(row)) || '—' }}
+            </span>
+          </template>
           <template #cell-proxy="{ row }">
             <div class="flex flex-col gap-1">
               <div v-if="row.proxy" class="flex items-center gap-2">
@@ -1778,6 +1783,20 @@ function getAntigravityTierClass(row: any): string {
   }
 }
 
+// Use snapshot timestamps, never the time the table or its cache was refreshed.
+const getUsageUpdatedAt = (account: AccountListItem): string | null => {
+  const timestamps = [
+    usageBatchByAccountId.value[String(account.id)]?.updated_at,
+    account.extra?.codex_usage_updated_at,
+    account.extra?.passive_usage_sampled_at,
+    account.extra?.[`${account.platform}_usage_updated_at`]
+  ].filter((value): value is string =>
+    typeof value === 'string' && Number.isFinite(Date.parse(value))
+  )
+  return timestamps.reduce<string | null>((latest, value) =>
+    !latest || Date.parse(value) > Date.parse(latest) ? value : latest, null)
+}
+
 // All available columns
 const allColumns = computed(() => {
   const c = [
@@ -1794,6 +1813,7 @@ const allColumns = computed(() => {
     c.push({ key: 'groups', label: t('admin.accounts.columns.groups'), sortable: false })
   }
   c.push({ key: 'usage', label: t('admin.accounts.columns.usageWindows'), sortable: false })
+  c.push({ key: 'usage_updated_at', label: t('admin.accounts.columns.usageUpdatedAt'), sortable: false })
   c.push(
     { key: 'proxy', label: t('admin.accounts.columns.proxy'), sortable: false },
     { key: 'priority', label: t('admin.accounts.columns.priority'), sortable: true },

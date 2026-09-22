@@ -960,6 +960,13 @@ func applyExtraToUsage(usage *UsageInfo, extra map[string]any, now time.Time) {
 	if usage == nil {
 		return
 	}
+	// Report when quota was observed upstream, not when cached stats were read.
+	usage.UpdatedAt = nil
+	if raw, ok := extra["codex_usage_updated_at"].(string); ok {
+		if updatedAt, err := parseTime(raw); err == nil {
+			usage.UpdatedAt = &updatedAt
+		}
+	}
 	if progress := buildCodexUsageProgressFromExtra(extra, "5h", now); progress != nil {
 		usage.FiveHour = progress
 	}

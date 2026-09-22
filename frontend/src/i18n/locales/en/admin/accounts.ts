@@ -237,6 +237,7 @@ export default {
         todayStats: 'Today Stats',
         groups: 'Groups',
         usageWindows: 'Usage Windows',
+        usageUpdatedAt: 'Limit Last Updated',
         proxy: 'Proxy',
         lastUsed: 'Last Used',
         createdAt: 'Created',

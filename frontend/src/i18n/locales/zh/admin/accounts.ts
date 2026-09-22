@@ -113,6 +113,7 @@ export default {
         todayStats: '今日统计',
         groups: '分组',
         usageWindows: '用量窗口',
+        usageUpdatedAt: '额度最后更新时间',
         proxy: '代理',
         lastUsed: '最近使用',
         createdAt: '创建时间',
