@@ -7,14 +7,14 @@ vi.mock('@/api/admin/accounts', () => ({
 import { buildModelMappingObject, getModelsByPlatform, getPresetMappingsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
 
 describe('useModelWhitelist', () => {
-  it('openai 模型列表包含 GPT-5.4 官方快照', () => {
+  it('OpenAI suggestions retain GPT-6 and omit older personal-deployment models', () => {
     const models = getModelsByPlatform('openai')
 
-    expect(models).toContain('gpt-5.4')
-    expect(models).toContain('gpt-5.4-mini')
-    expect(models).toContain('gpt-5.4-2026-03-05')
+    expect(models).not.toContain('gpt-5.4')
+    expect(models).not.toContain('gpt-5.4-mini')
+    expect(models).not.toContain('gpt-5.4-2026-03-05')
     expect(models).toContain('codex-auto-review')
-    expect(models).toContain('gpt-5.6')
+    expect(models).not.toContain('gpt-5.6')
     expect(models).toContain('gpt-6')
     expect(models).toContain('gpt-6-astra')
     expect(models).toContain('gpt-6-sol')

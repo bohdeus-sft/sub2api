@@ -328,7 +328,7 @@
           </template>
           <template #cell-usage_updated_at="{ row }">
             <span class="whitespace-nowrap text-sm text-gray-500 dark:text-dark-400">
-              {{ formatDateTime(getUsageUpdatedAt(row)) || '—' }}
+              {{ formatUsageUpdatedAt(row) }}
             </span>
           </template>
           <template #cell-proxy="{ row }">
@@ -492,7 +492,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'vue'
-import { useIntervalFn } from '@vueuse/core'
+import { useIntervalFn, useNow } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -1795,6 +1795,17 @@ const getUsageUpdatedAt = (account: AccountListItem): string | null => {
   )
   return timestamps.reduce<string | null>((latest, value) =>
     !latest || Date.parse(value) > Date.parse(latest) ? value : latest, null)
+}
+
+const usageDisplayNow = useNow({ interval: 60_000 })
+const formatUsageUpdatedAt = (account: AccountListItem): string => {
+  const updatedAt = getUsageUpdatedAt(account)
+  if (!updatedAt) return '—'
+  const time = formatDateTime(updatedAt, {
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  })
+  const minutes = Math.max(0, Math.floor((usageDisplayNow.value.getTime() - Date.parse(updatedAt)) / 60_000))
+  return `${time} · ${t('common.time.minutesAgo', { n: minutes })}`
 }
 
 // All available columns
