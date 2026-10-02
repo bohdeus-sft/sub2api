@@ -61,6 +61,12 @@ func TestPersonalPrivacy(t *testing.T) {
 		for _, payload := range [][]byte{full, meta} {
 			require.NotContains(t, string(payload), "canary-private")
 		}
+		full, meta, err = marshalSchedulerCacheAccount(service.Account{ID: 1, ErrorMessage: "API returned 403: canary-private-prompt"})
+		require.NoError(t, err)
+		require.Contains(t, string(full), "HTTP 403: access forbidden")
+		for _, payload := range [][]byte{full, meta} {
+			require.NotContains(t, string(payload), "canary-private-prompt")
+		}
 		// Scheduling metadata still works without keeping conversation text.
 		require.NoError(t, cache.SetSessionAccountID(ctx, 1, "hash", 7, time.Minute))
 		id, err := cache.GetSessionAccountID(ctx, 1, "hash")

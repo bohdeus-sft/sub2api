@@ -754,11 +754,23 @@ const setUsageBatchLoading = (accountID: number, loadingState: boolean) => {
   }
 }
 
+const latestOpenAIUsage = (accountID: number, incoming: AccountUsageInfo | null): AccountUsageInfo | null => {
+  const previous = usageBatchByAccountId.value[String(accountID)]
+  if (!previous || !accounts.value.some(account => account.id === accountID && account.platform === 'openai')) {
+    return incoming
+  }
+  const previousAt = Date.parse(previous.updated_at ?? '')
+  const incomingAt = Date.parse(incoming?.updated_at ?? '')
+  return Number.isFinite(previousAt) && (!Number.isFinite(incomingAt) || previousAt > incomingAt)
+    ? previous
+    : incoming
+}
+
 const setUsageBatchState = (accountID: number, usage: AccountUsageInfo | null, error: string | null) => {
   const key = String(accountID)
   usageBatchByAccountId.value = {
     ...usageBatchByAccountId.value,
-    [key]: usage
+    [key]: latestOpenAIUsage(accountID, usage)
   }
   usageBatchErrorByAccountId.value = {
     ...usageBatchErrorByAccountId.value,
@@ -801,11 +813,11 @@ const flushQueuedUsageBatch = async () => {
         continue
       }
       const usage = usageMap[key] ?? null
-      nextUsage[key] = usage
+      nextUsage[key] = latestOpenAIUsage(accountID, usage)
       nextErrors[key] = errorMap[key] ?? null
       nextLoading[key] = false
-      if (usage) {
-        usageBatchCache.set(accountID, { data: usage, ts: now })
+      if (nextUsage[key]) {
+        usageBatchCache.set(accountID, { data: nextUsage[key], ts: now })
       } else {
         usageBatchCache.delete(accountID)
       }
@@ -1783,14 +1795,17 @@ function getAntigravityTierClass(row: any): string {
   }
 }
 
-// Use snapshot timestamps, never the time the table or its cache was refreshed.
+// OpenAI's usage timestamp is set when quota headers are observed upstream, not
+// when local window statistics or a cached table row are read.
 const getUsageUpdatedAt = (account: AccountListItem): string | null => {
-  const timestamps = [
-    usageBatchByAccountId.value[String(account.id)]?.updated_at,
-    account.extra?.codex_usage_updated_at,
-    account.extra?.passive_usage_sampled_at,
-    account.extra?.[`${account.platform}_usage_updated_at`]
-  ].filter((value): value is string =>
+  const timestamps = (account.platform === 'openai'
+    ? [account.extra?.codex_usage_updated_at, usageBatchByAccountId.value[String(account.id)]?.updated_at]
+    : [
+        usageBatchByAccountId.value[String(account.id)]?.updated_at,
+        account.extra?.codex_usage_updated_at,
+        account.extra?.passive_usage_sampled_at,
+        account.extra?.[`${account.platform}_usage_updated_at`]
+      ]).filter((value): value is string =>
     typeof value === 'string' && Number.isFinite(Date.parse(value))
   )
   return timestamps.reduce<string | null>((latest, value) =>

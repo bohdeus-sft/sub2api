@@ -130,6 +130,35 @@ describe('AccountUsageCell', () => {
     })
   })
 
+  it('emits the upstream observation timestamp after an explicit OpenAI Query', async () => {
+    getUsage.mockResolvedValueOnce({
+      updated_at: '2026-09-20T08:00:00Z',
+      five_hour: { utilization: 5, resets_at: null },
+      seven_day: { utilization: 52, resets_at: null }
+    }).mockResolvedValueOnce({
+      updated_at: '2026-09-24T09:15:30Z',
+      five_hour: { utilization: 6, resets_at: null },
+      seven_day: { utilization: 53, resets_at: null }
+    })
+    const wrapper = mount(AccountUsageCell, {
+      props: { account: makeAccount({ id: 55, platform: 'openai', type: 'oauth' }) },
+      global: { stubs: {
+        UsageProgressBar: true,
+        OpenAIQuotaResetCell: { template: '<div><slot name="pre-actions" /></div>' }
+      } }
+    })
+    await flushPromises()
+
+    const query = wrapper.findAll('button').find(button => button.text().includes('admin.accounts.usageWindow.activeQuery'))
+    expect(query).toBeDefined()
+    await query!.trigger('click')
+    await flushPromises()
+
+    expect(getUsage).toHaveBeenLastCalledWith(55, 'active', true)
+    expect(wrapper.emitted('usage-loaded')?.at(-1)?.[0]).toMatchObject({ updated_at: '2026-09-24T09:15:30Z' })
+    wrapper.unmount()
+  })
+
   it('renders eligible Ollama Cloud state and forwards query updates', async () => {
     const wrapper = mount(AccountUsageCell, {
       props: {

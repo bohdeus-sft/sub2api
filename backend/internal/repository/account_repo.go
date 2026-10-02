@@ -150,7 +150,7 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 		SetConcurrency(account.Concurrency).
 		SetPriority(account.Priority).
 		SetStatus(account.Status).
-		SetErrorMessage(privacy.Diagnostic(account.ErrorMessage)).
+		SetErrorMessage(privacy.AccountDiagnostic(account.ErrorMessage)).
 		SetSchedulable(account.Schedulable).
 		SetAutoPauseOnExpired(account.AutoPauseOnExpired)
 
@@ -544,7 +544,7 @@ func (r *accountRepository) updateLockedAccount(
 		SetConcurrency(account.Concurrency).
 		SetPriority(account.Priority).
 		SetStatus(account.Status).
-		SetErrorMessage(privacy.Diagnostic(account.ErrorMessage)).
+		SetErrorMessage(privacy.AccountDiagnostic(account.ErrorMessage)).
 		SetSchedulable(schedulable).
 		SetAutoPauseOnExpired(account.AutoPauseOnExpired)
 
@@ -1464,7 +1464,7 @@ func (r *accountRepository) SetError(ctx context.Context, id int64, errorMsg str
 	_, err := r.client.Account.Update().
 		Where(dbaccount.IDEQ(id)).
 		SetStatus(service.StatusError).
-		SetErrorMessage(privacy.Diagnostic(errorMsg)).
+		SetErrorMessage(privacy.AccountDiagnostic(errorMsg)).
 		SetSchedulable(false).
 		Save(ctx)
 	if err != nil {
@@ -1511,7 +1511,7 @@ func (r *accountRepository) SetGrokCredentialErrorIfMatch(
 		)
 		INSERT INTO scheduler_outbox (event_type, account_id, group_id, payload)
 		SELECT $10, updated.id, NULL, NULL FROM updated
-	`, service.StatusError, privacy.Diagnostic(errorMsg), id, service.StatusActive, service.PlatformGrok, service.AccountTypeOAuth,
+	`, service.StatusError, privacy.AccountDiagnostic(errorMsg), id, service.StatusActive, service.PlatformGrok, service.AccountTypeOAuth,
 		snapshot.CredentialsJSON, snapshot.ProxyID, string(service.GrokCredentialReasonProxyInvalid),
 		service.SchedulerOutboxEventAccountChanged)
 	if err != nil {
@@ -1563,7 +1563,7 @@ func (r *accountRepository) SetGrokOAuthErrorIfCredentialsUnchanged(
 		SELECT $8, updated.id, NULL, NULL FROM updated
 	`,
 		service.StatusError,
-		privacy.Diagnostic(errorMsg),
+		privacy.AccountDiagnostic(errorMsg),
 		id,
 		service.PlatformGrok,
 		service.AccountTypeOAuth,
@@ -1684,7 +1684,7 @@ func (r *accountRepository) SetGrokOAuthRefreshErrorIfCredentialsUnchanged(
 		SELECT $9, updated.id, NULL, NULL FROM updated
 	`,
 		service.StatusError,
-		privacy.Diagnostic(errorMsg),
+		privacy.AccountDiagnostic(errorMsg),
 		id,
 		service.PlatformGrok,
 		service.AccountTypeOAuth,

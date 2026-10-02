@@ -828,7 +828,7 @@ func (c *schedulerCache) writeAccountIDs(ctx context.Context, accounts []service
 }
 
 func marshalSchedulerCacheAccount(account service.Account) ([]byte, []byte, error) {
-	account.ErrorMessage = privacy.Diagnostic(account.ErrorMessage)
+	account.ErrorMessage = privacy.AccountDiagnostic(account.ErrorMessage)
 	account.TempUnschedulableReason = privacy.Diagnostic(account.TempUnschedulableReason)
 	fullPayload, err := json.Marshal(account)
 	if err != nil {

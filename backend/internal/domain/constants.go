@@ -99,6 +99,16 @@ const (
 // AntigravityGemini31ProAgentModel is the upstream route for Gemini 3.1 Pro High.
 const AntigravityGemini31ProAgentModel = "gemini-pro-agent"
 
+// SuggestedAntigravityModels is the short catalog offered by the admin UI.
+// Keep aligned with frontend/src/constants/antigravityModels.ts. Routing still
+// uses the full mapping below so existing and manually configured models work.
+var SuggestedAntigravityModels = []string{
+	"gemini-3.1-pro-high",
+	"gemini-3.8-flash-high",
+	"gemini-2.5-flash-image",
+	"gemini-3.1-flash-image",
+}
+
 // DefaultAntigravityModelMapping 是 Antigravity 平台的默认模型映射
 // 当账号未配置 model_mapping 时使用此默认值
 // 与前端 useModelWhitelist.ts 中的 antigravityDefaultMappings 保持一致

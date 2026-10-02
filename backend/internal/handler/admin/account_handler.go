@@ -2892,10 +2892,18 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 		return
 	}
 
-	// Handle Antigravity accounts: return Claude + Gemini models
+	// Offer the curated catalog in account tests without narrowing gateway support.
 	if account.Platform == service.PlatformAntigravity {
-		// 直接复用 antigravity.DefaultModels()，与 /v1/models 端点保持同步
-		response.Success(c, antigravity.DefaultModels())
+		models := make([]antigravity.ClaudeModel, 0, len(domain.SuggestedAntigravityModels))
+		for _, id := range domain.SuggestedAntigravityModels {
+			for _, model := range antigravity.DefaultModels() {
+				if model.ID == id {
+					models = append(models, model)
+					break
+				}
+			}
+		}
+		response.Success(c, models)
 		return
 	}
 
@@ -3301,7 +3309,11 @@ func (h *AccountHandler) BatchRefreshTier(c *gin.Context) {
 // GetAntigravityDefaultModelMapping 获取 Antigravity 平台的默认模型映射
 // GET /api/v1/admin/accounts/antigravity/default-model-mapping
 func (h *AccountHandler) GetAntigravityDefaultModelMapping(c *gin.Context) {
-	response.Success(c, domain.DefaultAntigravityModelMapping)
+	mapping := make(map[string]string, len(domain.SuggestedAntigravityModels))
+	for _, id := range domain.SuggestedAntigravityModels {
+		mapping[id] = domain.DefaultAntigravityModelMapping[id]
+	}
+	response.Success(c, mapping)
 }
 
 // sanitizeExtraBaseRPM 对 extra map 中的 base_rpm 值进行范围校验和归一化。

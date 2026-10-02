@@ -706,7 +706,7 @@ describe('UseKeyModal', () => {
     expect(model.variants).not.toHaveProperty('none')
   })
 
-  it('renders Claude Fable 5 OpenCode config with adaptive thinking', async () => {
+  it('renders only the curated Antigravity Gemini models with native high thinking', async () => {
     const wrapper = mount(UseKeyModal, {
       props: {
         show: true,
@@ -734,23 +734,29 @@ describe('UseKeyModal', () => {
     await opencodeTab!.trigger('click')
     await nextTick()
 
-    const claudeConfig = wrapper.findAll('pre code')
-      .map((code) => code.text())
-      .find((content) => content.includes('"antigravity-claude"'))
-
-    expect(claudeConfig).toBeDefined()
-    const parsed = JSON.parse(claudeConfig!)
-    const fable51 = parsed.provider['antigravity-claude'].models['claude-fable-5-1']
-    const fable = parsed.provider['antigravity-claude'].models['claude-fable-5']
-
-    expect(fable51.name).toBe('Claude Fable 5.1')
-    expect(fable51.limit).toEqual({ context: 1048576, output: 128000 })
-    expect(fable51.options.thinking).toEqual({ type: 'adaptive' })
-    expect(fable51.options.thinking).not.toHaveProperty('budgetTokens')
-    expect(fable.name).toBe('Claude Fable 5')
-    expect(fable.limit).toEqual({ context: 1048576, output: 128000 })
-    expect(fable.options.thinking).toEqual({ type: 'adaptive' })
-    expect(fable.options.thinking).not.toHaveProperty('budgetTokens')
+    const codeBlocks = wrapper.findAll('pre code')
+    expect(codeBlocks).toHaveLength(1)
+    const parsed = JSON.parse(codeBlocks[0].text())
+    expect(Object.keys(parsed.provider)).toEqual(['antigravity-gemini'])
+    const provider = parsed.provider['antigravity-gemini']
+    expect(provider.options).toEqual({
+      baseURL: 'https://example.com/antigravity/v1beta', apiKey: 'sk-test'
+    })
+    expect(provider.npm).toBe('@ai-sdk/google')
+    expect(Object.keys(provider.models)).toEqual([
+      'gemini-3.1-pro-high', 'gemini-3.8-flash-high',
+      'gemini-2.5-flash-image', 'gemini-3.1-flash-image'
+    ])
+    for (const id of ['gemini-3.1-pro-high', 'gemini-3.8-flash-high']) {
+      expect(provider.models[id].options).toEqual({
+        thinkingConfig: { thinkingLevel: 'high', includeThoughts: true }
+      })
+      expect(provider.models[id].modalities.output).toEqual(['text'])
+    }
+    for (const id of ['gemini-2.5-flash-image', 'gemini-3.1-flash-image']) {
+      expect(provider.models[id].modalities).toEqual({ input: ['text', 'image'], output: ['image'] })
+      expect(provider.models[id]).not.toHaveProperty('options.thinking')
+    }
   })
 
   // Scenario: API Key users can fetch a routed group catalog and reference it from config.toml.
