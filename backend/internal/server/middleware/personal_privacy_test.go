@@ -19,7 +19,10 @@ func TestPersonalPrivacy(t *testing.T) {
 		require.NoError(t, err)
 		originalStdout := os.Stdout
 		os.Stdout = output
-		defer func() { os.Stdout = originalStdout; output.Close() }()
+		defer func() {
+			os.Stdout = originalStdout
+			require.NoError(t, output.Close())
+		}()
 		require.NoError(t, logger.Init(logger.InitOptions{}))
 		var logs bytes.Buffer
 		original := gin.DefaultErrorWriter

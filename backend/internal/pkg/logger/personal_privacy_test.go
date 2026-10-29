@@ -27,7 +27,11 @@ func TestPersonalPrivacy(t *testing.T) {
 		require.NoError(t, err)
 		original := os.Stdout
 		os.Stdout = w
-		defer func() { os.Stdout = original; r.Close(); w.Close() }()
+		defer func() {
+			os.Stdout = original
+			_ = r.Close()
+			_ = w.Close()
+		}()
 		filename := filepath.Join(t.TempDir(), "private.log")
 		require.NoError(t, Init(InitOptions{Level: "debug", Output: OutputOptions{ToFile: true, ToStdout: true, FilePath: filename}}))
 		sink := &privateTestSink{}

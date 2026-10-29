@@ -14,7 +14,7 @@ func TestPersonalPrivacy(t *testing.T) {
 	testutil.Run(t, func(t *testing.T) {
 		ctx := context.Background()
 		stage := newDefaultOpenAIFirstOutputStage()
-		defer stage.Close()
+		defer func() { require.NoError(t, stage.Close()) }()
 		stage.createTemp = func() (*os.File, error) { t.Fatal("response must never spill to a file"); return nil, nil }
 		payload := strings.Repeat("private response", 16384)
 		n, err := stage.WriteString(payload)

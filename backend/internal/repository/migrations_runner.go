@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/Wei-Shaw/sub2api/migrations"
 )
 
@@ -262,7 +263,13 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 		}
 
 		// 执行迁移 SQL
-		if _, err := tx.ExecContext(ctx, content); err != nil {
+		executionContent := content
+		if privacy.Enabled() && name == "246_enable_gemini_image_generation_groups.sql" {
+			// Preserve explicit group choices in personal deployments. Record the
+			// original checksum so upstream migration files remain immutable.
+			executionContent = "SELECT 1"
+		}
+		if _, err := tx.ExecContext(ctx, executionContent); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("apply migration %s: %w", name, err)
 		}

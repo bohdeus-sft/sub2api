@@ -19,7 +19,11 @@ func Run(t *testing.T, test func(*testing.T)) {
 		test(t)
 		return
 	}
-	cmd := exec.Command(os.Args[0], "-test.run=^"+regexp.QuoteMeta(t.Name())+"$", "-test.v")
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("locate privacy test executable: %v", err)
+	}
+	cmd := exec.Command(executable, "-test.run=^"+regexp.QuoteMeta(t.Name())+"$", "-test.v")
 	cmd.Env = append(os.Environ(), childKey+"="+t.Name())
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("privacy regression failed: %v\n%s", err, output)

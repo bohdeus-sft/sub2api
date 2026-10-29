@@ -1,4 +1,5 @@
 import { antigravityModelPresets } from '@/constants/antigravityModels'
+import { getProviderProfile } from '@/constants/platformCatalog'
 
 // =====================
 // 模型列表（硬编码，与 new-api 一致）
@@ -7,7 +8,7 @@ import { antigravityModelPresets } from '@/constants/antigravityModels'
 // OpenAI
 const openaiModels = [
   // Curated suggestions for this personal deployment.
-  'gpt-6', 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna',
+  'gpt-6', 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-luna',
   'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.5',
   'gpt-5.3-codex-spark', 'codex-auto-review',
   'gpt-4o-audio-preview', 'gpt-4o-realtime-preview',
@@ -29,6 +30,7 @@ export const claudeModels = [
   'claude-opus-5-5',
   'claude-opus-5',
   'claude-sonnet-5-5',
+  'claude-haiku-5-5',
   'claude-sonnet-5',
   'claude-sonnet-4-6',
   'claude-fable-5-1',
@@ -40,13 +42,22 @@ const geminiModels = [
   // Keep in sync with backend curated Gemini lists.
   // This list is intentionally conservative (models commonly available across OAuth/API key).
   'gemini-3.1-flash-image',
-  'gemini-2.5-flash-image',
-  'gemini-2.0-flash',
-  'gemini-2.5-flash',
-  'gemini-2.5-pro',
-  'gemini-3.5-flash',
+  'gemini-3.1-flash-image-preview',
+  'gemini-3.1-flash-lite-image',
+  'gemini-3-pro-image',
+  'gemini-3-pro-image-preview',
+  'gemini-3-flash',
   'gemini-3-flash-preview',
-  'gemini-3-pro-preview'
+  'gemini-3.1-pro-preview',
+  'gemini-3.1-pro-preview-customtools',
+  'gemini-3.1-flash-lite',
+  'gemini-3.1-flash-lite-preview',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-3.7-flash',
+  'gemini-3.8-flash',
+  'gemini-4-argon'
 ]
 
 // Curated Antigravity suggestions; custom models can still be entered manually.
@@ -213,10 +224,11 @@ const perplexityModels = [
 ]
 
 // 所有模型（去重）
-const allModelsList: string[] = [
+const allModelsList: string[] = Array.from(new Set([
   ...openaiModels,
   ...claudeModels,
   ...geminiModels,
+  ...antigravityModels,
   ...zhipuModels,
   ...qwenModels,
   ...deepseekModels,
@@ -232,7 +244,7 @@ const allModelsList: string[] = [
   ...sparkModels,
   ...hunyuanModels,
   ...perplexityModels
-]
+]))
 
 // 转换为下拉选项格式
 export const allModels = allModelsList.map(m => ({ value: m, label: m }))
@@ -257,6 +269,7 @@ const anthropicPresetMappings = [
   { label: 'Opus 5', from: 'claude-opus-5', to: 'claude-opus-5', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
   { label: 'Haiku 3.5', from: 'claude-3-5-haiku-20241022', to: 'claude-3-5-haiku-20241022', color: 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400' },
   { label: 'Haiku 4.5', from: 'claude-haiku-4-5-20251001', to: 'claude-haiku-4-5-20251001', color: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' },
+  { label: 'Haiku 5.5', from: 'claude-haiku-5-5', to: 'claude-haiku-5-5', color: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' },
   { label: 'Opus->Sonnet', from: 'claude-opus-4-6', to: 'claude-sonnet-4-5-20250929', color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400' }
 ]
 
@@ -271,6 +284,7 @@ const openaiPresetMappings = [
   { label: 'GPT-5.6 Terra', from: 'gpt-5.6-terra', to: 'gpt-5.6-terra', color: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' },
   { label: 'GPT-5.5', from: 'gpt-5.5', to: 'gpt-5.5', color: 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-400' },
   { label: 'GPT-6', from: 'gpt-6', to: 'gpt-6', color: 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-400' },
+  { label: 'GPT-6.1 Terra', from: 'gpt-6.1-terra', to: 'gpt-6.1-terra', color: 'bg-lime-100 text-lime-700 hover:bg-lime-200 dark:bg-lime-900/30 dark:text-lime-400' },
   { label: 'GPT-6.1 Sol', from: 'gpt-6.1-sol', to: 'gpt-6.1-sol', color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400' },
   { label: 'GPT-6 Sol', from: 'gpt-6-sol', to: 'gpt-6-sol', color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400' },
   { label: 'GPT-6 Luna', from: 'gpt-6-luna', to: 'gpt-6-luna', color: 'bg-sky-100 text-sky-700 hover:bg-sky-200 dark:bg-sky-900/30 dark:text-sky-400' },
@@ -404,7 +418,10 @@ export function getModelsByPlatform(platform: string): string[] {
     case 'spark': return sparkModels
     case 'hunyuan': return hunyuanModels
     case 'perplexity': return perplexityModels
-    default: return claudeModels
+    default:
+      // 平台清单中没有内置模型列表的多协议供应商（多为多模型聚合平台，模型多且常变）
+      // 默认不预填白名单：预填 Claude 模型会让新账号只接受这些模型。
+      return getProviderProfile(platform) ? [] : claudeModels
   }
 }
 
