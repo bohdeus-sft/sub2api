@@ -62,7 +62,14 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/api/admin/accounts', () => ({
-  getAntigravityDefaultModelMapping: vi.fn().mockResolvedValue([]),
+  getAntigravityDefaultModelMapping: vi.fn().mockResolvedValue({
+    'gemini-3.1-pro-high': 'gemini-pro-agent',
+    'gemini-3.8-flash-high': 'gemini-3.8-flash-high',
+    'gemini-4-argon-high': 'gemini-4-argon-high',
+    'claude-opus-5-5-high': 'claude-opus-5-5-high',
+    'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
+    'gemini-3.1-flash-image': 'gemini-3.1-flash-image',
+  }),
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -840,6 +847,14 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     const payload = createAccountMock.mock.calls[0]?.[0]
     expect(payload?.platform).toBe('antigravity')
     expect(payload?.type).toBe('apikey')
+    expect(payload?.credentials?.model_mapping).toEqual({
+      'gemini-3.1-pro-high': 'gemini-pro-agent',
+      'gemini-3.8-flash-high': 'gemini-3.8-flash-high',
+      'gemini-4-argon-high': 'gemini-4-argon-high',
+      'claude-opus-5-5-high': 'claude-opus-5-5-high',
+      'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
+      'gemini-3.1-flash-image': 'gemini-3.1-flash-image',
+    })
     expect(payload?.upstream_billing_probe_enabled).toBe(true)
     // 创建成功后前端立即发起一次首探（与其他 apikey 平台一致）。
     expect(probeUpstreamBillingMock).toHaveBeenCalledWith(42)

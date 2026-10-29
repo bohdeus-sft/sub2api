@@ -22,6 +22,17 @@ describe('UsageProgressBar', () => {
     vi.useRealTimers()
   })
 
+  it.each([{ remaining: 0, label: 'usage.resetPending' }, { remaining: 100, label: 'usage.resetNow' }])(
+    'shows $label for an expired window with $remaining% remaining',
+    ({ remaining, label }) => {
+      const wrapper = mount(UsageProgressBar, {
+        props: { label: 'Weekly', utilization: remaining, remainingCapacity: true, resetsAt: '2026-03-16T00:00:00Z', color: 'indigo' }
+      })
+      expect(wrapper.text()).toContain(label)
+      wrapper.unmount()
+    }
+  )
+
   it('showNowWhenIdle=true 且利用率为 0 但有未来 resetsAt 时显示倒计时', () => {
     const wrapper = mount(UsageProgressBar, {
       props: {

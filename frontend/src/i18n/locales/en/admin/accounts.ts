@@ -1707,6 +1707,17 @@ export default {
         usageTrend: '30-Day Cost & Request Trend',
         noData: 'No usage data available for this account'
       },
+      antigravityQuota: {
+        remaining: 'Quota remaining',
+        fiveHour: '5 hours',
+        weekly: 'Weekly',
+        reported: 'Reported quota',
+        unknown: 'Unknown',
+        notApplicable: 'Not applicable',
+        summaryUnavailable: 'Quota windows unavailable. Reported model quotas do not identify the 5-hour and weekly limits.',
+        modelDetails: 'Per-model quotas',
+        modelDetailsHint: 'Models can share a quota pool; these values are not additional allowances.'
+      },
       usageWindow: {
         statsTitle: '5-Hour Window Usage Statistics',
         statsTitleDaily: 'Daily Usage Statistics',

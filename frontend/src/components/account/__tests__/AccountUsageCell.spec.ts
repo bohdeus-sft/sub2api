@@ -436,7 +436,7 @@ describe('AccountUsageCell', () => {
     expect(wrapper.text()).not.toContain('-')
   })
 
-  it('Antigravity 图片用量会聚合新旧 image 模型', async () => {
+  it('Antigravity preserves each reported image model quota', async () => {
     getUsage.mockResolvedValue({
       antigravity_quota: {
         'gemini-2.5-flash-image': {
@@ -476,7 +476,12 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('admin.accounts.usageWindow.gemini3Image|70|2026-03-01T09:00:00Z')
+    expect(wrapper.findAll('.usage-bar')).toHaveLength(3)
+    expect(wrapper.text()).toContain('gemini-2.5-flash-image')
+    expect(wrapper.text()).toContain('gemini-3.1-flash-image')
+    expect(wrapper.text()).toContain('gemini-3-pro-image')
+    expect(wrapper.text()).toContain('admin.accounts.antigravityQuota.reported|30|2026-03-01T09:00:00Z')
+    expect(wrapper.text()).toContain('admin.accounts.antigravityQuota.summaryUnavailable')
   })
 
   it('Antigravity 会显示 AI Credits 余额信息', async () => {

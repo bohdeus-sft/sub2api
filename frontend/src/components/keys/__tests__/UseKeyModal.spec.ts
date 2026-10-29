@@ -803,9 +803,10 @@ describe('UseKeyModal', () => {
     expect(provider.npm).toBe('@ai-sdk/google')
     expect(Object.keys(provider.models)).toEqual([
       'gemini-3.1-pro-high', 'gemini-3.8-flash-high',
+      'gemini-4-argon-high',
       'gemini-2.5-flash-image', 'gemini-3.1-flash-image'
     ])
-    for (const id of ['gemini-3.1-pro-high', 'gemini-3.8-flash-high']) {
+    for (const id of ['gemini-3.1-pro-high', 'gemini-3.8-flash-high', 'gemini-4-argon-high']) {
       expect(provider.models[id].options).toEqual({
         thinkingConfig: { thinkingLevel: 'high', includeThoughts: true }
       })

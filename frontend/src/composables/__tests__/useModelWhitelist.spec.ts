@@ -78,9 +78,10 @@ describe('useModelWhitelist', () => {
     expect(models).not.toContain('gpt-5.2-codex')
   })
 
-  it('offers only the four curated Antigravity models and matching presets', () => {
+  it('offers the curated Antigravity models including Argon and Opus with matching presets', () => {
     const models = [
       'gemini-3.1-pro-high', 'gemini-3.8-flash-high',
+      'gemini-4-argon-high', 'claude-opus-5-5-high',
       'gemini-2.5-flash-image', 'gemini-3.1-flash-image'
     ]
     expect(getModelsByPlatform('antigravity')).toEqual(models)
@@ -179,9 +180,9 @@ describe('useModelWhitelist', () => {
     expect(models).toContain('gemini-3.8-flash')
   })
 
-  it('offers Gemini 4 Argon on Gemini without expanding curated Antigravity suggestions', () => {
+  it('offers the native Gemini 4 Argon ID and its Antigravity high variant', () => {
     expect(getModelsByPlatform('gemini')).toContain('gemini-4-argon')
-    expect(getModelsByPlatform('antigravity')).not.toContain('gemini-4-argon-high')
+    expect(getModelsByPlatform('antigravity')).toContain('gemini-4-argon-high')
   })
 
   it('whitelist 模式会忽略通配符条目', () => {

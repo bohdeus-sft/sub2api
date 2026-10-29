@@ -1765,7 +1765,7 @@ function generateOpenCodeConfig(platform: string, baseUrl: string, apiKey: strin
   }
 
   const antigravityGeminiModels = Object.fromEntries(
-    antigravityModelPresets.map(({ id, name, image }) => [id, {
+    antigravityModelPresets.filter(({ id }) => id.startsWith('gemini-')).map(({ id, name, image }) => [id, {
       name,
       limit: { context: 1048576, output: 65536 },
       modalities: {

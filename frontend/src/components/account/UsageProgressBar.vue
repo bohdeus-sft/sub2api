@@ -204,7 +204,8 @@ const formatResetTime = computed(() => {
   // resetsAt 已过期：utilization>0 说明后端窗口数据还没刷新（active poll 没回写），
   // 显示「待刷新」以区别于真正可用的「现在」。
   if (diffMs <= 0) {
-    return props.utilization > 0 ? t('usage.resetPending') : t('usage.resetNow')
+    const hasUsage = props.remainingCapacity ? props.utilization < 100 : props.utilization > 0
+    return hasUsage ? t('usage.resetPending') : t('usage.resetNow')
   }
 
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60))

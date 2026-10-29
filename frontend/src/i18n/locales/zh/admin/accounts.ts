@@ -512,6 +512,17 @@ export default {
           unavailableDesc: '服务不可用 - 暂停 30 分钟'
         }
       },
+      antigravityQuota: {
+        remaining: '剩余额度',
+        fiveHour: '5 小时',
+        weekly: '每周',
+        reported: '已报告额度',
+        unknown: '未知',
+        notApplicable: '不适用',
+        summaryUnavailable: '配额窗口不可用。模型配额无法区分 5 小时和每周限制。',
+        modelDetails: '各模型配额',
+        modelDetailsHint: '模型可能共享配额池；这些数值不是额外额度。'
+      },
       usageWindow: {
         statsTitle: '5小时窗口用量统计',
         statsTitleDaily: '每日用量统计',

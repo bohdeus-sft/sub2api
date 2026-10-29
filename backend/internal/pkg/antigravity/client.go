@@ -648,13 +648,15 @@ func extractProjectIDFromOnboardResponse(resp map[string]any) string {
 
 // ModelQuotaInfo 模型配额信息
 type ModelQuotaInfo struct {
-	RemainingFraction float64 `json:"remainingFraction"`
-	ResetTime         string  `json:"resetTime,omitempty"`
+	RemainingFraction        float64 `json:"remainingFraction"`
+	ResetTime                string  `json:"resetTime,omitempty"`
+	remainingFractionMissing bool
 }
 
 // ModelInfo 模型信息
 type ModelInfo struct {
 	QuotaInfo          *ModelQuotaInfo `json:"quotaInfo,omitempty"`
+	WeeklyQuotaInfo    *ModelQuotaInfo `json:"weeklyQuotaInfo,omitempty"`
 	DisplayName        string          `json:"displayName,omitempty"`
 	SupportsImages     *bool           `json:"supportsImages,omitempty"`
 	SupportsThinking   *bool           `json:"supportsThinking,omitempty"`

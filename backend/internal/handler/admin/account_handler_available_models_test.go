@@ -603,7 +603,7 @@ func TestAccountHandlerAntigravityCuratedSuggestions(t *testing.T) {
 				ids = append(ids, model.ID)
 				require.NotEmpty(t, model.DisplayName)
 			}
-			require.Equal(t, []string{"gemini-3.1-pro-high", "gemini-3.8-flash-high", "gemini-2.5-flash-image", "gemini-3.1-flash-image"}, ids)
+			require.Equal(t, []string{"gemini-3.1-pro-high", "gemini-3.8-flash-high", "gemini-4-argon-high", "claude-opus-5-5-high", "gemini-2.5-flash-image", "gemini-3.1-flash-image"}, ids)
 		})
 	}
 
@@ -620,6 +620,8 @@ func TestAccountHandlerAntigravityCuratedSuggestions(t *testing.T) {
 	require.Equal(t, map[string]string{
 		"gemini-3.1-pro-high":    "gemini-pro-agent",
 		"gemini-3.8-flash-high":  "gemini-3.8-flash-high",
+		"gemini-4-argon-high":    "gemini-4-argon-high",
+		"claude-opus-5-5-high":   "claude-opus-5-5-high",
 		"gemini-2.5-flash-image": "gemini-2.5-flash-image",
 		"gemini-3.1-flash-image": "gemini-3.1-flash-image",
 	}, resp.Data)
