@@ -1714,7 +1714,7 @@ export default {
         reported: 'Reported quota',
         unknown: 'Unknown',
         notApplicable: 'Not applicable',
-        summaryUnavailable: 'Quota windows unavailable. Reported model quotas do not identify the 5-hour and weekly limits.',
+        summaryUnavailable: '5-hour/weekly quota summary unavailable. Expand per-model quotas for the available data.',
         modelDetails: 'Per-model quotas',
         modelDetailsHint: 'Models can share a quota pool; these values are not additional allowances.'
       },

@@ -79,7 +79,7 @@ describe('AntigravityQuotaUsage', () => {
     expect(details.get('[data-quota-bucket="opus/weekly"]').text()).toContain('60%')
   })
 
-  it('shows new and custom models with an explicit missing-window notice on older API responses', () => {
+  it('keeps older API model quotas collapsed beneath the missing-summary notice', () => {
     const wrapper = mount(AntigravityQuotaUsage, { props: { usage: { antigravity_quota: {
       'gemini-4-argon-high': { utilization: 20, reset_time: '' },
       'claude-opus-5-5-high': { utilization: 60, reset_time: '' },
@@ -91,6 +91,28 @@ describe('AntigravityQuotaUsage', () => {
     expect(wrapper.text()).toContain('custom-future-model')
     expect(wrapper.text()).toContain('antigravityQuota.summaryUnavailable')
     expect(wrapper.text()).not.toContain('antigravityQuota.fiveHour')
-    expect(wrapper.find('details').exists()).toBe(false)
+    const details = wrapper.get('details')
+    expect(details.attributes('open')).toBeUndefined()
+    expect(details.text()).toContain('gemini-4-argon-high')
+    expect(details.text()).toContain('claude-opus-5-5-high')
+    expect(wrapper.find('[data-quota-group]').exists()).toBe(false)
   })
+
+  it('keeps a large model-only response inside collapsed details with distinct model identifiers', () => {
+    const models = Array.from({ length: 80 }, (_, index) => ({
+      ...group(`model-${index}`, [bucket(`model-${index}/quota`, '', 0)], 'model'),
+      display_name: 'Gemini Flash'
+    }))
+    const wrapper = mount(AntigravityQuotaUsage, { props: { usage: {
+      antigravity_quota_summary_status: 'unavailable', antigravity_quota_groups: models
+    } } })
+    expect(wrapper.findAll('[data-quota-group]')).toHaveLength(0)
+    const details = wrapper.get('details')
+    expect(details.attributes('open')).toBeUndefined()
+    expect(details.findAllComponents(UsageProgressBar)).toHaveLength(80)
+    expect(details.get('[title="model-79"]').text()).toContain('Gemini Flash')
+    expect(details.get('[role="region"]').attributes('tabindex')).toBe('0')
+    expect(wrapper.get('[data-test="antigravity-summary-unavailable"]').element.nextElementSibling).toBe(details.element)
+  })
+
 })

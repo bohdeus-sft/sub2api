@@ -519,7 +519,7 @@ export default {
         reported: '已报告额度',
         unknown: '未知',
         notApplicable: '不适用',
-        summaryUnavailable: '配额窗口不可用。模型配额无法区分 5 小时和每周限制。',
+        summaryUnavailable: '5 小时/每周配额汇总不可用。展开各模型配额以查看可用数据。',
         modelDetails: '各模型配额',
         modelDetailsHint: '模型可能共享配额池；这些数值不是额外额度。'
       },

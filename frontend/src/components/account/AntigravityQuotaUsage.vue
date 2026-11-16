@@ -1,9 +1,9 @@
 <template>
   <div class="max-w-xs space-y-2" data-test="antigravity-quotas">
-    <div v-if="groups.length" class="text-[10px] text-gray-500 dark:text-gray-400">
+    <div v-if="summaryGroups.length" class="text-[10px] text-gray-500 dark:text-gray-400">
       {{ t('admin.accounts.antigravityQuota.remaining') }}
     </div>
-    <div v-for="group in groups" :key="group.id" class="space-y-1" :data-quota-group="group.id">
+    <div v-for="group in summaryGroups" :key="group.id" class="space-y-1" :data-quota-group="group.id">
       <div class="break-words text-[10px] font-medium text-gray-700 dark:text-gray-300">
         {{ group.display_name }}
       </div>
@@ -26,24 +26,31 @@
     <p v-if="!summaryGroups.length" class="whitespace-normal text-[10px] text-gray-500 dark:text-gray-400" data-test="antigravity-summary-unavailable">
       {{ t('admin.accounts.antigravityQuota.summaryUnavailable') }}
     </p>
-    <details v-if="summaryGroups.length && modelGroups.length" class="text-[10px] text-gray-500 dark:text-gray-400">
+    <details v-if="modelGroups.length" class="text-[10px] text-gray-500 dark:text-gray-400">
       <summary class="cursor-pointer">{{ t('admin.accounts.antigravityQuota.modelDetails') }}</summary>
       <p class="my-1 whitespace-normal">{{ t('admin.accounts.antigravityQuota.modelDetailsHint') }}</p>
-      <div v-for="group in modelGroups" :key="group.id" class="my-2 space-y-1" :title="group.id">
-        <div class="break-words">{{ group.display_name }}</div>
-        <div v-for="bucket in group.buckets" :key="bucket.id" :title="bucketTitle(bucket)" :data-quota-bucket="bucket.id">
-          <UsageProgressBar
-            v-if="remainingPercent(bucket) !== null && !bucket.disabled"
-            :label="windowLabel(bucket)"
-            :utilization="remainingPercent(bucket) ?? 0"
-            :resets-at="bucket.reset_time || null"
-            color="indigo"
-            remaining-capacity
-            label-width="auto"
-          />
-          <div v-else>
-            {{ windowLabel(bucket) }} · {{ bucket.disabled ? t('admin.accounts.antigravityQuota.notApplicable') : t('admin.accounts.antigravityQuota.unknown') }}
-            <time v-if="bucket.reset_time" :datetime="bucket.reset_time"> · {{ resetLabel(bucket.reset_time) }}</time>
+      <div
+        class="max-h-64 overflow-y-auto pr-1"
+        role="region"
+        :aria-label="t('admin.accounts.antigravityQuota.modelDetails')"
+        tabindex="0"
+      >
+        <div v-for="group in modelGroups" :key="group.id" class="my-2 space-y-1" :title="group.id">
+          <div class="break-words">{{ group.display_name }}</div>
+          <div v-for="bucket in group.buckets" :key="bucket.id" :title="bucketTitle(bucket)" :data-quota-bucket="bucket.id">
+            <UsageProgressBar
+              v-if="remainingPercent(bucket) !== null && !bucket.disabled"
+              :label="windowLabel(bucket)"
+              :utilization="remainingPercent(bucket) ?? 0"
+              :resets-at="bucket.reset_time || null"
+              color="indigo"
+              remaining-capacity
+              label-width="auto"
+            />
+            <div v-else>
+              {{ windowLabel(bucket) }} · {{ bucket.disabled ? t('admin.accounts.antigravityQuota.notApplicable') : t('admin.accounts.antigravityQuota.unknown') }}
+              <time v-if="bucket.reset_time" :datetime="bucket.reset_time"> · {{ resetLabel(bucket.reset_time) }}</time>
+            </div>
           </div>
         </div>
       </div>
@@ -69,7 +76,6 @@ const modelGroups = computed<AntigravityQuotaGroup[]>(() => {
     buckets: [{ id: `${id}/quota`, display_name: '', window: '', utilization: quota.utilization, reset_time: quota.reset_time, disabled: false }]
   }))
 })
-const groups = computed(() => summaryGroups.value.length ? summaryGroups.value : modelGroups.value)
 
 function remainingPercent(bucket: AntigravityQuotaBucket): number | null {
   const used = bucket.utilization
