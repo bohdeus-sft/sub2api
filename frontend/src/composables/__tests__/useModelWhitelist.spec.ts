@@ -78,27 +78,44 @@ describe('useModelWhitelist', () => {
     expect(models).not.toContain('gpt-5.2-codex')
   })
 
-  it('offers the curated Antigravity models including Argon and Opus with matching presets', () => {
-    const models = [
-      'gemini-3.1-pro-high', 'gemini-3.8-flash-high',
-      'gemini-4-argon-high', 'claude-opus-5-5-high',
-      'gemini-2.5-flash-image', 'gemini-3.1-flash-image'
-    ]
-    expect(getModelsByPlatform('antigravity')).toEqual(models)
-    expect(getPresetMappingsByPlatform('antigravity').map(({ from }) => from)).toEqual(models)
-    expect(getPresetMappingsByPlatform('antigravity')[0].to).toBe('gemini-pro-agent')
-    expect(buildModelMappingObject('mapping', [], [{ from: 'custom-model', to: 'custom-upstream' }]))
-      .toEqual({ 'custom-model': 'custom-upstream' })
+  it('antigravity 模型列表包含图片模型兼容项', () => {
+    const models = getModelsByPlatform('antigravity')
+
+    expect(models).toContain('gemini-2.5-flash-image')
+    expect(models).toContain('gemini-3.1-flash-image')
+    expect(models).toContain('gemini-3-pro-image')
   })
 
   it('Claude 模型列表包含新发布的 Claude 模型', () => {
     expect(getModelsByPlatform('claude')).toContain('claude-fable-5-1')
+    expect(getModelsByPlatform('antigravity')).toContain('claude-fable-5-1')
     expect(getModelsByPlatform('claude')).toContain('claude-fable-5')
+    expect(getModelsByPlatform('antigravity')).toContain('claude-fable-5')
     expect(getModelsByPlatform('claude')).toContain('claude-opus-5-5')
     expect(getModelsByPlatform('antigravity')).not.toContain('claude-opus-5-5')
     expect(getModelsByPlatform('claude')).toContain('claude-sonnet-5-5')
     expect(getModelsByPlatform('antigravity')).not.toContain('claude-sonnet-5-5')
     expect(getModelsByPlatform('claude')).toContain('claude-opus-4-8')
+    expect(getModelsByPlatform('antigravity')).toContain('claude-opus-4-8')
+  })
+
+  it.each([
+    ['claude-fable-5-2', 'Fable 5.2'],
+    ['claude-mythos-5-2', 'Mythos 5.2']
+  ])('preserves %s in Anthropic whitelists and presets without inventing provider mappings', (model, label) => {
+    for (const platform of ['claude', 'anthropic']) {
+      const models = getModelsByPlatform(platform)
+      expect(models).toContain(model)
+      expect(buildModelMappingObject('whitelist', models, [])?.[model]).toBe(model)
+      expect(getPresetMappingsByPlatform(platform)).toEqual(expect.arrayContaining([
+        expect.objectContaining({ label, from: model, to: model })
+      ]))
+    }
+    expect(getPresetMappingsByPlatform('bedrock')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label, from: model, to: `anthropic.${model}` })
+    ]))
+    expect(getModelsByPlatform('antigravity')).not.toContain(model)
+    expect(getPresetMappingsByPlatform('antigravity').some(mapping => mapping.from === model)).toBe(false)
   })
 
   it('Claude Sonnet 5.5 预设使用各平台的官方模型 ID', () => {
@@ -180,9 +197,45 @@ describe('useModelWhitelist', () => {
     expect(models).toContain('gemini-3.8-flash')
   })
 
-  it('offers the native Gemini 4 Argon ID and its Antigravity high variant', () => {
+  it('antigravity 模型列表会把新的 Gemini 图片模型排在前面', () => {
+    const models = getModelsByPlatform('antigravity')
+
+    expect(models.indexOf('gemini-3.1-flash-image')).toBeLessThan(models.indexOf('gemini-2.5-flash'))
+    expect(models.indexOf('gemini-2.5-flash-image')).toBeLessThan(models.indexOf('gemini-2.5-flash-lite'))
+  })
+
+  it('antigravity 模型列表包含 Gemini 3.1 Pro 通用别名', () => {
+    const models = getModelsByPlatform('antigravity')
+
+    expect(models).toContain('gemini-3.1-pro')
+  })
+
+  it('Gemini 4 Carbon exposes the official API model without invented aliases', () => {
+    const models = getModelsByPlatform('gemini')
+    expect(models).toContain('gemini-4-carbon')
+    expect(models).not.toContain('gemini-4-carbon-preview')
+    expect(getModelsByPlatform('antigravity')).toContain('gemini-4-carbon')
+    expect(getPresetMappingsByPlatform('antigravity')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: 'gemini-4-carbon', to: 'gemini-4-carbon' })
+    ]))
+    expect(buildModelMappingObject('whitelist', ['gemini-4-carbon'], [])).toEqual({
+      'gemini-4-carbon': 'gemini-4-carbon'
+    })
+  })
+
+  it('Gemini 4 Argon 在 gemini 与 antigravity 平台使用对应真实模型 ID 与预设映射', () => {
     expect(getModelsByPlatform('gemini')).toContain('gemini-4-argon')
-    expect(getModelsByPlatform('antigravity')).toContain('gemini-4-argon-high')
+    const agModels = getModelsByPlatform('antigravity')
+    expect(agModels).not.toContain('gemini-4-argon')
+    expect(agModels).toContain('gemini-4-argon-high')
+    expect(agModels).toContain('gemini-4-argon-medium')
+    expect(agModels).toContain('gemini-4-argon-low')
+    expect(getPresetMappingsByPlatform('antigravity')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: 'gemini-4-argon', to: 'gemini-4-argon-high' }),
+      expect.objectContaining({ from: 'gemini-4-argon-high', to: 'gemini-4-argon-high' }),
+      expect.objectContaining({ from: 'gemini-4-argon-medium', to: 'gemini-4-argon-medium' }),
+      expect.objectContaining({ from: 'gemini-4-argon-low', to: 'gemini-4-argon-low' })
+    ]))
   })
 
   it('whitelist 模式会忽略通配符条目', () => {

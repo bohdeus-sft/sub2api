@@ -114,3 +114,27 @@ func TestFetchAntigravityQuotaSummaryIndependentOfModelEndpoint(t *testing.T) {
 		})
 	}
 }
+
+func TestAntigravitySummaryGroupsOrderAndJSON(t *testing.T) {
+	var summary antigravity.QuotaSummary
+	require.NoError(t, json.Unmarshal([]byte(`{"groups":[{"displayName":"Gemini Models","buckets":[{"bucketId":"gemini-weekly","window":"weekly","remainingFraction":0.75},{"bucketId":"gemini-5h","window":"5h","remainingFraction":0.4,"resetTime":"2026-11-04T20:52:48Z"}]}]}`), &summary))
+	groups := antigravitySummaryGroups(&summary)
+	require.Len(t, groups, 1)
+	require.Equal(t, "5h", groups[0].Buckets[0].Window)
+	require.InDelta(t, 60.0, *groups[0].Buckets[0].Utilization, 0.001)
+	require.Equal(t, "weekly", groups[0].Buckets[1].Window)
+	require.InDelta(t, 25.0, *groups[0].Buckets[1].Utilization, 0.001)
+	raw, err := json.Marshal(&UsageInfo{AntigravityQuotaGroups: groups})
+	require.NoError(t, err)
+	var decoded struct {
+		Groups []AntigravityQuotaGroup `json:"antigravity_quota_groups"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &decoded))
+	require.Equal(t, groups, decoded.Groups)
+	raw, err = json.Marshal(&UsageInfo{})
+	require.NoError(t, err)
+	require.NotContains(t, string(raw), "antigravity_quota_groups")
+	require.Nil(t, antigravitySummaryGroups(nil))
+	require.Empty(t, antigravitySummaryGroups(&antigravity.QuotaSummary{}))
+	require.Empty(t, antigravitySummaryGroups(&antigravity.QuotaSummary{Groups: []antigravity.QuotaGroup{{DisplayName: "empty"}}}))
+}

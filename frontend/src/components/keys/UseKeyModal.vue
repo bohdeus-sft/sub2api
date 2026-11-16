@@ -274,8 +274,8 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useClipboard } from '@/composables/useClipboard'
 import { buildCodexModelCatalogUrl, fetchCodexModelsManifest } from '@/api/codex'
-import { antigravityModelPresets } from '@/constants/antigravityModels'
 import type { GroupPlatform } from '@/types'
+import { buildCodexApiKeyAuthConfig } from '@/utils/codexAuthConfig'
 import {
   findCodexCatalogModel,
   formatCodexReasoningEffortTomlLine,
@@ -319,7 +319,7 @@ const copiedIndex = ref<number | null>(null)
 const activeTab = ref<string>('unix')
 const activeClientTab = ref<string>('claude')
 type CodexAuthMode = 'legacy' | 'api-key'
-const codexAuthMode = ref<CodexAuthMode>('legacy')
+const codexAuthMode = ref<CodexAuthMode>('api-key')
 type CodexModelManifestState = 'idle' | 'loading' | 'ready' | 'error'
 const codexModelManifestState = ref<CodexModelManifestState>('idle')
 const codexModelManifestContent = ref('')
@@ -377,12 +377,12 @@ const defaultClientTab = computed(() => {
 watch(() => [props.platform, props.claudeCodeOnly], () => {
   activeTab.value = 'unix'
   activeClientTab.value = defaultClientTab.value
-  codexAuthMode.value = 'legacy'
+  codexAuthMode.value = 'api-key'
 }, { immediate: true })
 
 watch(() => props.show, (show) => {
   if (show) {
-    codexAuthMode.value = 'legacy'
+    codexAuthMode.value = 'api-key'
   } else {
     resetCodexModelManifest()
   }
@@ -745,6 +745,7 @@ const currentFiles = computed((): FileConfig[] => {
     return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`
   }
   const apiBase = ensureV1(baseRoot)
+  const antigravityBase = ensureV1(`${baseRoot}/antigravity`)
   const antigravityGeminiBase = (() => {
     const trimmed = `${baseRoot}/antigravity`.replace(/\/+$/, '')
     return trimmed.endsWith('/v1beta') ? trimmed : `${trimmed}/v1beta`
@@ -764,6 +765,7 @@ const currentFiles = computed((): FileConfig[] => {
         return [generateOpenCodeConfig('gemini', geminiBase, apiKey)]
       case 'antigravity':
         return [
+          generateOpenCodeConfig('antigravity-claude', antigravityBase, apiKey, 'opencode.json (Claude)'),
           generateOpenCodeConfig('antigravity-gemini', antigravityGeminiBase, apiKey, 'opencode.json (Gemini)')
         ]
       case 'grok':
@@ -1026,13 +1028,14 @@ function generateOpenAIFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const isWindows = activeTab.value === 'windows'
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
 
-  const model = selectCodexCatalogModel('gpt-5.5')
+  const model = selectCodexCatalogModel('gpt-6.1-sol')
   const reasoningEffortLine = codexReasoningEffortTomlLine(model)
 
   // config.toml content
   const configContent = `model_provider = "OpenAI"
 model = "${model}"
 review_model = "${model}"
+web_search = "live"
 ${reasoningEffortLine}disable_response_storage = true
 ${codexLocalCatalogToml.value}network_access = "enabled"
 windows_wsl_setup_acknowledged = true
@@ -1044,16 +1047,14 @@ ${codexModelCatalogMode.value === 'remote' ? `model_catalog_url = "${escapeTomlB
 ${generateCodexProviderAuthConfig(apiKey)}
 
 [features]
-${codexModelCatalogMode.value === 'remote' ? 'api_key_model_discovery = true\n' : ''}goals = true`
+${codexModelCatalogMode.value === 'remote' ? 'api_key_model_discovery = true\n' : ''}${codexAuthMode.value === 'api-key' ? 'image_generation = true\n' : ''}goals = true`
 
   return buildOpenAICodexFileConfigs(configDir, configContent, apiKey)
 }
 
 function generateCodexProviderAuthConfig(apiKey: string): string {
   if (codexAuthMode.value === 'api-key') {
-    return `requires_openai_auth = false
-experimental_bearer_token = "${escapeTomlBasicString(apiKey)}"
-http_headers = { "x-openai-actor-authorization" = "local-image-extension" }`
+    return buildCodexApiKeyAuthConfig(apiKey)
   }
 
   return 'requires_openai_auth = true'
@@ -1308,7 +1309,7 @@ function generateRoutedCodexFiles(
   const isWindows = activeTab.value === 'windows'
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
   const preferredModels: Partial<Record<GroupPlatform, string>> = {
-    openai: 'gpt-5.5',
+    openai: 'gpt-6.1-sol',
     anthropic: 'claude-sonnet-4-6',
     gemini: 'gemini-2.5-pro',
     antigravity: 'claude-sonnet-4-6',
@@ -1318,7 +1319,7 @@ function generateRoutedCodexFiles(
     deepseek: 'deepseek-v4-pro',
     minimax: 'MiniMax-M3',
     opencode_go: 'glm-5.3',
-    composite: 'gpt-5.5'
+    composite: 'gpt-6.1-sol'
   }
   const preferredModel = preferredModels[platform] || ''
   const model = selectCodexCatalogModel(preferredModel)
@@ -1374,13 +1375,14 @@ supports_websockets = false${codexModelCatalogMode.value === 'remote' ? '\n\n[fe
 function generateOpenAIWsFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const isWindows = activeTab.value === 'windows'
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
-  const model = selectCodexCatalogModel('gpt-5.5')
+  const model = selectCodexCatalogModel('gpt-6.1-sol')
   const reasoningEffortLine = codexReasoningEffortTomlLine(model)
 
   // config.toml content with WebSocket v2
   const configContent = `model_provider = "OpenAI"
 model = "${model}"
 review_model = "${model}"
+web_search = "live"
 ${reasoningEffortLine}disable_response_storage = true
 ${codexLocalCatalogToml.value}network_access = "enabled"
 windows_wsl_setup_acknowledged = true
@@ -1393,7 +1395,7 @@ supports_websockets = true
 ${generateCodexProviderAuthConfig(apiKey)}
 
 [features]
-${codexModelCatalogMode.value === 'remote' ? 'api_key_model_discovery = true\n' : ''}responses_websockets_v2 = true
+${codexModelCatalogMode.value === 'remote' ? 'api_key_model_discovery = true\n' : ''}${codexAuthMode.value === 'api-key' ? 'image_generation = true\n' : ''}responses_websockets_v2 = true
 goals = true`
 
   return buildOpenAICodexFileConfigs(configDir, configContent, apiKey)
@@ -1764,21 +1766,212 @@ function generateOpenCodeConfig(platform: string, baseUrl: string, apiKey: strin
     }
   }
 
-  const antigravityGeminiModels = Object.fromEntries(
-    antigravityModelPresets.filter(({ id }) => id.startsWith('gemini-')).map(({ id, name, image }) => [id, {
-      name,
-      limit: { context: 1048576, output: 65536 },
-      modalities: {
-        input: image ? ['text', 'image'] : ['text', 'image', 'pdf'],
-        output: image ? ['image'] : ['text']
+  const antigravityGeminiModels = {
+    'gemini-2.5-flash': {
+      name: 'Gemini 2.5 Flash',
+      limit: {
+        context: 1048576,
+        output: 65536
       },
-      ...(!image ? {
-        reasoning: true,
-        tool_call: true,
-        options: { thinkingConfig: { thinkingLevel: 'high', includeThoughts: true } }
-      } : {})
-    }])
-  )
+      modalities: {
+        input: ['text', 'image', 'pdf'],
+        output: ['text']
+      },
+      options: {
+        thinking: {
+          budgetTokens: 24576,
+          type: 'disable'
+        }
+      }
+    },
+    'gemini-2.5-flash-lite': {
+      name: 'Gemini 2.5 Flash Lite',
+      limit: {
+        context: 1048576,
+        output: 65536
+      },
+      modalities: {
+        input: ['text', 'image', 'pdf'],
+        output: ['text']
+      },
+      options: {
+        thinking: {
+          budgetTokens: 24576,
+          type: 'enabled'
+        }
+      }
+    },
+    'gemini-2.5-flash-thinking': {
+      name: 'Gemini 2.5 Flash (Thinking)',
+      limit: {
+        context: 1048576,
+        output: 65536
+      },
+      modalities: {
+        input: ['text', 'image', 'pdf'],
+        output: ['text']
+      },
+      options: {
+        thinking: {
+          budgetTokens: 24576,
+          type: 'enabled'
+        }
+      }
+    },
+    'gemini-3-flash': {
+      name: 'Gemini 3 Flash',
+      limit: {
+        context: 1048576,
+        output: 65536
+      },
+      modalities: {
+        input: ['text', 'image', 'pdf'],
+        output: ['text']
+      },
+      options: {
+        thinking: {
+          budgetTokens: 24576,
+          type: 'enabled'
+        }
+      }
+    },
+    'gemini-3.1-pro-low': {
+      name: 'Gemini 3.1 Pro Low',
+      limit: {
+        context: 1048576,
+        output: 65536
+      },
+      modalities: {
+        input: ['text', 'image', 'pdf'],
+        output: ['text']
+      },
+      options: {
+        thinking: {
+          budgetTokens: 24576,
+          type: 'enabled'
+        }
+      }
+    },
+    'gemini-3.1-pro-high': {
+      name: 'Gemini 3.1 Pro High',
+      limit: {
+        context: 1048576,
+        output: 65536
+      },
+      modalities: {
+        input: ['text', 'image', 'pdf'],
+        output: ['text']
+      },
+      options: {
+        thinking: {
+          budgetTokens: 24576,
+          type: 'enabled'
+        }
+      }
+    },
+    'gemini-2.5-flash-image': {
+      name: 'Gemini 2.5 Flash Image',
+      limit: {
+        context: 1048576,
+        output: 65536
+      },
+      modalities: {
+        input: ['text', 'image'],
+        output: ['image']
+      },
+      options: {
+        thinking: {
+          budgetTokens: 24576,
+          type: 'enabled'
+        }
+      }
+    },
+    'gemini-3.1-flash-image': {
+      name: 'Gemini 3.1 Flash Image',
+      limit: {
+        context: 1048576,
+        output: 65536
+      },
+      modalities: {
+        input: ['text', 'image'],
+        output: ['image']
+      },
+      options: {
+        thinking: {
+          budgetTokens: 24576,
+          type: 'enabled'
+        }
+      }
+    }
+  }
+  const claudeModels = {
+    'claude-fable-5-1': {
+      name: 'Claude Fable 5.1',
+      limit: {
+        context: 1048576,
+        output: 128000
+      },
+      modalities: {
+        input: ['text', 'image', 'pdf'],
+        output: ['text']
+      },
+      options: {
+        thinking: {
+          type: 'adaptive'
+        }
+      }
+    },
+    'claude-fable-5': {
+      name: 'Claude Fable 5',
+      limit: {
+        context: 1048576,
+        output: 128000
+      },
+      modalities: {
+        input: ['text', 'image', 'pdf'],
+        output: ['text']
+      },
+      options: {
+        thinking: {
+          type: 'adaptive'
+        }
+      }
+    },
+    'claude-opus-4-6-thinking': {
+      name: 'Claude 4.6 Opus (Thinking)',
+      limit: {
+        context: 200000,
+        output: 128000
+      },
+      modalities: {
+        input: ['text', 'image', 'pdf'],
+        output: ['text']
+      },
+      options: {
+        thinking: {
+          budgetTokens: 24576,
+          type: 'enabled'
+        }
+      }
+    },
+    'claude-sonnet-4-6': {
+      name: 'Claude 4.6 Sonnet',
+      limit: {
+        context: 200000,
+        output: 64000
+      },
+      modalities: {
+        input: ['text', 'image', 'pdf'],
+        output: ['text']
+      },
+      options: {
+        thinking: {
+          budgetTokens: 24576,
+          type: 'enabled'
+        }
+      }
+    }
+  }
   // Align context_window with Grok Build official sample (docs.x.ai/build/settings) where known.
   // Image/video: grok-imagine-image / grok-imagine-video on media endpoints — not this list.
   const grokModels = {
@@ -1809,7 +2002,34 @@ function generateOpenCodeConfig(platform: string, baseUrl: string, apiKey: strin
     provider[platform].models = geminiModels
   } else if (platform === 'anthropic') {
     provider[platform].npm = '@ai-sdk/anthropic'
+    // Mythos requires an eligible Anthropic account; configuration does not grant access.
     provider[platform].models = {
+      'claude-fable-5-2': {
+        name: 'Claude Fable 5.2',
+        limit: { context: 1000000, output: 128000 },
+        modalities: { input: ['text', 'image', 'pdf'], output: ['text'] },
+        options: { thinking: { type: 'adaptive' }, effort: 'high' },
+        variants: {
+          low: { effort: 'low' },
+          medium: { effort: 'medium' },
+          high: { effort: 'high' },
+          xhigh: { effort: 'xhigh' },
+          max: { effort: 'max' }
+        }
+      },
+      'claude-mythos-5-2': {
+        name: 'Claude Mythos 5.2',
+        limit: { context: 1000000, output: 128000 },
+        modalities: { input: ['text', 'image', 'pdf'], output: ['text'] },
+        options: { thinking: { type: 'adaptive' }, effort: 'high' },
+        variants: {
+          low: { effort: 'low' },
+          medium: { effort: 'medium' },
+          high: { effort: 'high' },
+          xhigh: { effort: 'xhigh' },
+          max: { effort: 'max' }
+        }
+      },
       'claude-opus-5-5': {
         name: 'Claude Opus 5.5',
         limit: { context: 1000000, output: 128000 },
@@ -1837,6 +2057,10 @@ function generateOpenCodeConfig(platform: string, baseUrl: string, apiKey: strin
         }
       }
     }
+  } else if (platform === 'antigravity-claude') {
+    provider[platform].npm = '@ai-sdk/anthropic'
+    provider[platform].name = 'Antigravity (Claude)'
+    provider[platform].models = claudeModels
   } else if (platform === 'antigravity-gemini') {
     provider[platform].npm = '@ai-sdk/google'
     provider[platform].name = 'Antigravity (Gemini)'

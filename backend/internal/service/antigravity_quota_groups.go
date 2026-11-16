@@ -67,6 +67,19 @@ func antigravitySummaryGroups(summary *antigravity.QuotaSummary) []AntigravityQu
 			result[index].Buckets = append(result[index].Buckets, antigravityQuotaBucket(id, bucket.DisplayName, window, bucket.ResetTime, bucket.RemainingFraction, bucket.Disabled))
 		}
 	}
+	// Keep the real quota windows in the same order regardless of API response order.
+	windowOrder := map[string]int{"5h": 0, "weekly": 1}
+	for i := range result {
+		sort.SliceStable(result[i].Buckets, func(a, b int) bool {
+			order := func(window string) int {
+				if rank, ok := windowOrder[window]; ok {
+					return rank
+				}
+				return len(windowOrder)
+			}
+			return order(result[i].Buckets[a].Window) < order(result[i].Buckets[b].Window)
+		})
+	}
 	return result
 }
 

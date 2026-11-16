@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -333,14 +332,7 @@ func TestAccountHandlerGetAvailableModels_GeminiGoogleOneUsesConservativeCatalog
 }
 
 func TestAccountHandlerGetAvailableModels_Antigravity(t *testing.T) {
-	catalog := make(map[string]antigravity.ClaudeModel)
-	for _, model := range antigravity.DefaultModels() {
-		catalog[model.ID] = model
-	}
-	var defaults []antigravity.ClaudeModel
-	for _, id := range domain.SuggestedAntigravityModels {
-		defaults = append(defaults, catalog[id])
-	}
+	defaults := antigravity.DefaultModels()
 	known := defaults[0]
 	custom := antigravity.ClaudeModel{ID: "claude-custom-alias", Type: "model", DisplayName: "claude-custom-alias"}
 	cases := []struct {
@@ -578,53 +570,6 @@ func TestAccountHandlerSyncUpstreamModels_MetadataEnrichmentFailureReturnsWarnin
 	require.Equal(t, []string{"x-preview-f-free"}, resp.Data.Models)
 	require.Len(t, resp.Data.Warnings, 1)
 	require.Equal(t, "upstream_model_metadata_incomplete", resp.Data.Warnings[0].Code)
-}
-
-func TestAccountHandlerAntigravityCuratedSuggestions(t *testing.T) {
-	for _, accountType := range []string{service.AccountTypeOAuth, service.AccountTypeAPIKey} {
-		t.Run(accountType, func(t *testing.T) {
-			svc := &availableModelsAdminService{
-				stubAdminService: newStubAdminService(),
-				account:          service.Account{ID: 55, Platform: service.PlatformAntigravity, Type: accountType, Status: service.StatusActive},
-			}
-			router := setupAvailableModelsRouter(svc)
-			rec := httptest.NewRecorder()
-			router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts/55/models", nil))
-			require.Equal(t, http.StatusOK, rec.Code)
-			var resp struct {
-				Data []struct {
-					ID          string `json:"id"`
-					DisplayName string `json:"display_name"`
-				} `json:"data"`
-			}
-			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-			ids := make([]string, 0, len(resp.Data))
-			for _, model := range resp.Data {
-				ids = append(ids, model.ID)
-				require.NotEmpty(t, model.DisplayName)
-			}
-			require.Equal(t, []string{"gemini-3.1-pro-high", "gemini-3.8-flash-high", "gemini-4-argon-high", "claude-opus-5-5-high", "gemini-2.5-flash-image", "gemini-3.1-flash-image"}, ids)
-		})
-	}
-
-	handler := &AccountHandler{}
-	router := gin.New()
-	router.GET("/defaults", handler.GetAntigravityDefaultModelMapping)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/defaults", nil))
-	require.Equal(t, http.StatusOK, rec.Code)
-	var resp struct {
-		Data map[string]string `json:"data"`
-	}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	require.Equal(t, map[string]string{
-		"gemini-3.1-pro-high":    "gemini-pro-agent",
-		"gemini-3.8-flash-high":  "gemini-3.8-flash-high",
-		"gemini-4-argon-high":    "gemini-4-argon-high",
-		"claude-opus-5-5-high":   "claude-opus-5-5-high",
-		"gemini-2.5-flash-image": "gemini-2.5-flash-image",
-		"gemini-3.1-flash-image": "gemini-3.1-flash-image",
-	}, resp.Data)
 }
 
 func TestAccountHandlerGetAvailableModels_TypeSafeOnlyReturnsJev(t *testing.T) {

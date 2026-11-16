@@ -89,8 +89,10 @@ describe('custom page open button', () => {
   it('preserves the embedded URL, secure link attributes, and normal clicks with small pointer movements', async () => {
     const { wrapper, button } = mountEmbed()
     expect(button.href).toBe(wrapper.get('iframe').attributes('src'))
-    expect(button.href).toContain('user_id=7')
-    expect(button.href).toContain('token=test-token')
+    expect(button.href).not.toContain('user_id=')
+    expect(button.href).not.toContain('token=')
+    expect(wrapper.get('iframe').attributes('referrerpolicy')).toBe('no-referrer')
+    expect(wrapper.get('iframe').attributes('sandbox')).toBe('allow-scripts allow-forms allow-popups')
     expect(button.target).toBe('_blank')
     expect(button.rel).toBe('noopener noreferrer')
     await pointer(button, 'pointerdown', 700, 24)

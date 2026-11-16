@@ -62,14 +62,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/api/admin/accounts', () => ({
-  getAntigravityDefaultModelMapping: vi.fn().mockResolvedValue({
-    'gemini-3.1-pro-high': 'gemini-pro-agent',
-    'gemini-3.8-flash-high': 'gemini-3.8-flash-high',
-    'gemini-4-argon-high': 'gemini-4-argon-high',
-    'claude-opus-5-5-high': 'claude-opus-5-5-high',
-    'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
-    'gemini-3.1-flash-image': 'gemini-3.1-flash-image',
-  }),
+  getAntigravityDefaultModelMapping: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -226,6 +219,25 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
   afterEach(() => vi.useRealTimers())
 
+  it('can create a passthrough account with model filtering enabled', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('filtered passthrough')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('synthetic-key')
+    await wrapper.get('[data-testid="create-openai-passthrough-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="create-openai-passthrough-model-filter"]').setValue(true)
+    wrapper.getComponent(ModelWhitelistSelectorStub).vm.$emit('update:modelValue', ['qwen3.8-max'])
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    const payload = createAccountMock.mock.calls[0]?.[0]
+    expect(payload.extra.openai_passthrough).toBe(true)
+    expect(payload.extra.openai_passthrough_model_filter).toBe(true)
+    expect(payload.credentials.model_mapping).toEqual({ 'qwen3.8-max': 'qwen3.8-max' })
+    wrapper.unmount()
+  })
+
   it('sets month and year expiry presets without submitting the account form', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-01-31T12:34:00'))
@@ -343,6 +355,25 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     expect(createAccountMock.mock.calls[0]?.[0]?.extra?.images_url_to_b64_json).toBe(true)
+  })
+
+  it('omits image size tiers by default and sends restricted tiers when set', async () => {
+    await submitApiKeyAccount('openai')
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra).not.toHaveProperty('openai_image_size_tiers')
+
+    createAccountMock.mockClear()
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('openai account')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
+    await wrapper.get('[data-testid="openai-image-size-tier-1K"]').setValue(false)
+    await wrapper.get('[data-testid="openai-image-size-tier-2K"]').setValue(false)
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra?.openai_image_size_tiers).toEqual(['4K'])
   })
 
   it('persists upstream model metadata after creating an account from preview', async () => {
@@ -847,14 +878,6 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     const payload = createAccountMock.mock.calls[0]?.[0]
     expect(payload?.platform).toBe('antigravity')
     expect(payload?.type).toBe('apikey')
-    expect(payload?.credentials?.model_mapping).toEqual({
-      'gemini-3.1-pro-high': 'gemini-pro-agent',
-      'gemini-3.8-flash-high': 'gemini-3.8-flash-high',
-      'gemini-4-argon-high': 'gemini-4-argon-high',
-      'claude-opus-5-5-high': 'claude-opus-5-5-high',
-      'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
-      'gemini-3.1-flash-image': 'gemini-3.1-flash-image',
-    })
     expect(payload?.upstream_billing_probe_enabled).toBe(true)
     // 创建成功后前端立即发起一次首探（与其他 apikey 平台一致）。
     expect(probeUpstreamBillingMock).toHaveBeenCalledWith(42)

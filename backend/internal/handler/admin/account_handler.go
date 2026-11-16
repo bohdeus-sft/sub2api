@@ -1734,7 +1734,7 @@ func (h *AccountHandler) GetStats(c *gin.Context) {
 
 	stats, err := h.accountUsageService.GetAccountUsageStats(c.Request.Context(), accountID, startTime, endTime)
 	if err != nil {
-		response.ErrorFrom(c, err)
+		scopedOpenAIError(c, err)
 		return
 	}
 
@@ -3031,12 +3031,10 @@ func antigravityAccountTestModels(rawMapping any) []antigravity.ClaudeModel {
 		}
 	}
 	if len(mappedIDs) == 0 {
-		mappedIDs = append(mappedIDs, domain.SuggestedAntigravityModels...)
-	} else {
-		sort.Strings(mappedIDs)
+		return antigravity.DefaultModels()
 	}
 
-	// Defaults are suggestions; explicit mappings keep their request-side names.
+	sort.Strings(mappedIDs)
 	defaultByID := make(map[string]antigravity.ClaudeModel)
 	for _, model := range antigravity.DefaultModels() {
 		defaultByID[model.ID] = model
@@ -3372,11 +3370,7 @@ func (h *AccountHandler) BatchRefreshTier(c *gin.Context) {
 // GetAntigravityDefaultModelMapping 获取 Antigravity 平台的默认模型映射
 // GET /api/v1/admin/accounts/antigravity/default-model-mapping
 func (h *AccountHandler) GetAntigravityDefaultModelMapping(c *gin.Context) {
-	mapping := make(map[string]string, len(domain.SuggestedAntigravityModels))
-	for _, id := range domain.SuggestedAntigravityModels {
-		mapping[id] = domain.DefaultAntigravityModelMapping[id]
-	}
-	response.Success(c, mapping)
+	response.Success(c, domain.DefaultAntigravityModelMapping)
 }
 
 // sanitizeExtraBaseRPM 对 extra map 中的 base_rpm 值进行范围校验和归一化。

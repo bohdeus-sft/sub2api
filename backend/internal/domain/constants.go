@@ -106,18 +106,6 @@ const (
 // AntigravityGemini31ProAgentModel is the upstream route for Gemini 3.1 Pro High.
 const AntigravityGemini31ProAgentModel = "gemini-pro-agent"
 
-// SuggestedAntigravityModels is the short catalog offered by the admin UI.
-// Keep aligned with frontend/src/constants/antigravityModels.ts. Routing still
-// uses the full mapping below so existing and manually configured models work.
-var SuggestedAntigravityModels = []string{
-	"gemini-3.1-pro-high",
-	"gemini-3.8-flash-high",
-	"gemini-4-argon-high",
-	"claude-opus-5-5-high",
-	"gemini-2.5-flash-image",
-	"gemini-3.1-flash-image",
-}
-
 // DefaultAntigravityModelMapping 是 Antigravity 平台的默认模型映射
 // 当账号未配置 model_mapping 时使用此默认值
 // 与前端 useModelWhitelist.ts 中的 antigravityDefaultMappings 保持一致
@@ -190,7 +178,9 @@ var DefaultAntigravityModelMapping = map[string]string{
 	"gemini-3.8-flash-low":    "gemini-3.8-flash-low",
 	"gemini-3.8-flash-medium": "gemini-3.8-flash-medium",
 	"gemini-3.8-flash-tiered": "gemini-3.8-flash-tiered",
-	// Gemini 4 Argon tiered models
+	// Gemini 4 models
+	// Carbon uses the published model ID; do not infer Argon-style tier aliases.
+	"gemini-4-carbon":       "gemini-4-carbon",
 	"gemini-4-argon":        "gemini-4-argon-high",
 	"gemini-4-argon-high":   "gemini-4-argon-high",
 	"gemini-4-argon-low":    "gemini-4-argon-low",
@@ -209,8 +199,10 @@ var DefaultAntigravityModelMapping = map[string]string{
 // aws_region 自动调整为匹配的区域前缀（如 eu.、apac.、jp. 等）
 var DefaultBedrockModelMapping = map[string]string{
 	// Claude Fable
-	"claude-fable-5-1": "anthropic.claude-fable-5-1",
-	"claude-fable-5":   "anthropic.claude-fable-5",
+	"claude-fable-5-2":  "anthropic.claude-fable-5-2",
+	"claude-mythos-5-2": "anthropic.claude-mythos-5-2",
+	"claude-fable-5-1":  "anthropic.claude-fable-5-1",
+	"claude-fable-5":    "anthropic.claude-fable-5",
 	// Claude Opus
 	"claude-opus-5":            "us.anthropic.claude-opus-5-v1",
 	"claude-opus-4-8":          "us.anthropic.claude-opus-4-8-v1",
