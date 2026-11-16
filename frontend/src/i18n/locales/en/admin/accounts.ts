@@ -1722,9 +1722,7 @@ export default {
         reported: 'Reported quota',
         unknown: 'Unknown',
         notApplicable: 'Not applicable',
-        summaryUnavailable: '5-hour/weekly quota summary unavailable. Expand per-model quotas for the available data.',
-        modelDetails: 'Per-model quotas',
-        modelDetailsHint: 'Models can share a quota pool; these values are not additional allowances.'
+        summaryUnavailable: '5-hour/weekly quota summary unavailable.',
       },
       usageWindow: {
         statsTitle: '5-Hour Window Usage Statistics',
@@ -1736,8 +1734,6 @@ export default {
         gemini3Image: 'G31FI',
         antigravityGemini5h: 'G·5h',
         antigravityGeminiWeekly: 'G·wk',
-        antigravityArgon5h: 'A·5h',
-        antigravityArgonWeekly: 'A·wk',
         antigravityOther5h: 'C·5h',
         antigravityOtherWeekly: 'C·wk',
         claude: 'Claude',

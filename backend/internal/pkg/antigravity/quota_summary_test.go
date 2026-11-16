@@ -73,7 +73,13 @@ func TestRetrieveUserQuotaSummaryFallbackAndValidation(t *testing.T) {
 				require.Equal(t, 1, fallbackCalls)
 			} else {
 				require.Error(t, err)
-				require.NotContains(t, err.Error(), "sensitive provider error")
+				if tc.status == http.StatusForbidden {
+					var forbidden *ForbiddenError
+					require.ErrorAs(t, err, &forbidden)
+					require.Equal(t, tc.body, forbidden.Body)
+				} else {
+					require.NotContains(t, err.Error(), "sensitive provider error")
+				}
 				require.Zero(t, fallbackCalls)
 			}
 		})
@@ -96,18 +102,4 @@ func TestRetrieveUserQuotaSummaryDoesNotFollowRedirect(t *testing.T) {
 	_, err = client.RetrieveUserQuotaSummary(context.Background(), "token", "project", 4096)
 	require.ErrorContains(t, err, "307")
 	require.False(t, redirected)
-}
-
-func TestModelQuotaInfoMissingFraction(t *testing.T) {
-	for _, tc := range []struct {
-		raw   string
-		known bool
-	}{
-		{`{}`, false}, {`{"remainingFraction":null}`, false}, {`{"remainingFraction":0}`, true},
-		{`{"remainingFraction":1}`, true}, {`{"remainingFraction":-0.1}`, false}, {`{"remainingFraction":1.1}`, false},
-	} {
-		var quota ModelQuotaInfo
-		require.NoError(t, json.Unmarshal([]byte(tc.raw), &quota))
-		require.Equal(t, tc.known, quota.HasRemainingFraction(), tc.raw)
-	}
 }

@@ -1442,12 +1442,6 @@ export interface UsageProgress {
   limit_requests?: number
 }
 
-// Antigravity 单个模型的配额信息
-export interface AntigravityModelQuota {
-  utilization: number // 使用率 0-100
-  reset_time: string  // 重置时间 ISO8601
-}
-
 export interface AntigravityQuotaBucket {
   id: string
   display_name: string
@@ -1460,7 +1454,6 @@ export interface AntigravityQuotaBucket {
 export interface AntigravityQuotaGroup {
   id: string
   display_name: string
-  source: 'summary' | 'model'
   buckets: AntigravityQuotaBucket[]
 }
 
@@ -1521,7 +1514,6 @@ export interface AccountUsageInfo {
   gemini_shared_minute?: UsageProgress | null
   gemini_pro_minute?: UsageProgress | null
   gemini_flash_minute?: UsageProgress | null
-  antigravity_quota?: Record<string, AntigravityModelQuota> | null
   antigravity_quota_groups?: AntigravityQuotaGroup[] | null
   antigravity_quota_summary_status?: 'available' | 'unavailable'
   grok_request_quota?: GrokQuotaWindow | null

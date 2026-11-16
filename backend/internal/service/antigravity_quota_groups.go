@@ -1,117 +1,55 @@
 package service
 
 import (
-	"fmt"
 	"math"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 )
 
-func antigravityQuotaBucket(id, name, window, reset string, remaining *float64, disabled bool) AntigravityQuotaBucket {
-	bucket := AntigravityQuotaBucket{
-		ID: id, DisplayName: name, Window: window, Disabled: disabled,
-	}
-	if remaining != nil && !math.IsNaN(*remaining) && !math.IsInf(*remaining, 0) && *remaining >= 0 && *remaining <= 1 {
-		used := (1 - *remaining) * 100
-		bucket.Utilization = &used
-	}
-	if parsed, err := time.Parse(time.RFC3339Nano, reset); err == nil {
-		bucket.ResetTime = parsed.UTC().Format(time.RFC3339Nano)
-	}
-	return bucket
-}
-
 func antigravitySummaryGroups(summary *antigravity.QuotaSummary) []AntigravityQuotaGroup {
 	if summary == nil {
 		return nil
 	}
-	groups := append([]antigravity.QuotaGroup(nil), summary.Groups...)
-	if len(summary.Buckets) > 0 {
-		groups = append(groups, antigravity.QuotaGroup{Buckets: summary.Buckets})
-	}
-	var result []AntigravityQuotaGroup
-	seen := make(map[string]bool)
-	for groupIndex, group := range groups {
-		// Unnamed/flat responses must be split by pool, so e.g. Argon
-		// never appears under the general Gemini or Claude allowance.
-		indices := make(map[string]int)
-		for _, bucket := range group.Buckets {
+	buckets := make(map[string]antigravity.QuotaBucket, 4)
+	collect := func(items []antigravity.QuotaBucket) {
+		for _, bucket := range items {
 			id := strings.TrimSpace(bucket.BucketID)
-			if id == "" || seen[id] {
-				continue
-			}
-			seen[id] = true
-			window := strings.TrimSpace(bucket.Window)
-			if window == "" {
-				if strings.HasSuffix(id, "-weekly") {
-					window = "weekly"
-				} else if strings.HasSuffix(id, "-5h") {
-					window = "5h"
+			switch id {
+			case "gemini-5h", "gemini-weekly", "3p-5h", "3p-weekly":
+				if _, exists := buckets[id]; !exists {
+					buckets[id] = bucket
 				}
 			}
-			name := strings.TrimSpace(group.DisplayName)
-			if name == "" {
-				name = strings.TrimSuffix(strings.TrimSuffix(id, "-weekly"), "-5h")
-			}
-			index, ok := indices[name]
-			if !ok {
-				index = len(result)
-				indices[name] = index
-				result = append(result, AntigravityQuotaGroup{
-					ID: fmt.Sprintf("summary-%d-%d", groupIndex, index), DisplayName: name, Source: "summary",
-				})
-			}
-			result[index].Buckets = append(result[index].Buckets, antigravityQuotaBucket(id, bucket.DisplayName, window, bucket.ResetTime, bucket.RemainingFraction, bucket.Disabled))
 		}
 	}
-	// Keep the real quota windows in the same order regardless of API response order.
-	windowOrder := map[string]int{"5h": 0, "weekly": 1}
-	for i := range result {
-		sort.SliceStable(result[i].Buckets, func(a, b int) bool {
-			order := func(window string) int {
-				if rank, ok := windowOrder[window]; ok {
-					return rank
-				}
-				return len(windowOrder)
-			}
-			return order(result[i].Buckets[a].Window) < order(result[i].Buckets[b].Window)
-		})
+	for _, group := range summary.Groups {
+		collect(group.Buckets)
 	}
-	return result
-}
+	collect(summary.Buckets)
+	if len(buckets) == 0 {
+		return nil
+	}
 
-func antigravityModelGroups(models *antigravity.FetchAvailableModelsResponse) []AntigravityQuotaGroup {
-	ids := make([]string, 0, len(models.Models))
-	for id := range models.Models {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	var groups []AntigravityQuotaGroup
-	for _, id := range ids {
-		model := models.Models[id]
-		group := AntigravityQuotaGroup{ID: id, DisplayName: model.DisplayName, Source: "model"}
-		if group.DisplayName == "" {
-			group.DisplayName = id
-		}
-		for _, entry := range []struct {
-			window string
-			quota  *antigravity.ModelQuotaInfo
-		}{{"", model.QuotaInfo}, {"weekly", model.WeeklyQuotaInfo}} {
-			if entry.quota == nil {
-				continue
+	groups := make([]AntigravityQuotaGroup, 0, 2)
+	for _, pool := range []struct{ id, name string }{{"gemini", "Gemini Models"}, {"3p", "Claude and GPT models"}} {
+		group := AntigravityQuotaGroup{ID: pool.id, DisplayName: pool.name}
+		for _, window := range []string{"5h", "weekly"} {
+			id := pool.id + "-" + window
+			raw := buckets[id]
+			bucket := AntigravityQuotaBucket{ID: id, Window: window, Disabled: raw.Disabled}
+			remaining := raw.RemainingFraction
+			if remaining != nil && !math.IsNaN(*remaining) && !math.IsInf(*remaining, 0) && *remaining >= 0 && *remaining <= 1 {
+				used := (1 - *remaining) * 100
+				bucket.Utilization = &used
 			}
-			var remaining *float64
-			if entry.quota.HasRemainingFraction() {
-				remaining = &entry.quota.RemainingFraction
+			if reset, err := time.Parse(time.RFC3339Nano, raw.ResetTime); err == nil {
+				bucket.ResetTime = reset.UTC().Format(time.RFC3339Nano)
 			}
-			group.Buckets = append(group.Buckets, antigravityQuotaBucket(id+"/"+entry.window, "", entry.window, entry.quota.ResetTime, remaining, false))
+			group.Buckets = append(group.Buckets, bucket)
 		}
-		if len(group.Buckets) > 0 {
-			groups = append(groups, group)
-		}
+		groups = append(groups, group)
 	}
 	return groups
 }

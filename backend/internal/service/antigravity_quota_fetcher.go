@@ -55,21 +55,9 @@ func (f *AntigravityQuotaFetcher) FetchQuota(ctx context.Context, account *Accou
 	if err != nil {
 		return nil, fmt.Errorf("create antigravity client failed: %w", err)
 	}
-	type summaryResult struct {
-		summary *antigravity.QuotaSummary
-	}
-	summaryCh := make(chan summaryResult, 1)
-	go func() {
-		summaryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-		summary, _ := client.RetrieveUserQuotaSummary(summaryCtx, accessToken, projectID, resolveModelsListReadLimit(f.cfg))
-		summaryCh <- summaryResult{summary: summary}
-	}()
-
-	// 调用 API 获取配额
-	modelsResp, modelsRaw, err := client.FetchAvailableModels(ctx, accessToken, projectID, resolveModelsListReadLimit(f.cfg))
-	summary := <-summaryCh
-	groups := antigravitySummaryGroups(summary.summary)
+	summaryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	summary, err := client.RetrieveUserQuotaSummary(summaryCtx, accessToken, projectID, resolveModelsListReadLimit(f.cfg))
 	if err != nil {
 		// 403 Forbidden: 不报错，返回 is_forbidden 标记
 		var forbiddenErr *antigravity.ForbiddenError
@@ -89,28 +77,17 @@ func (f *AntigravityQuotaFetcher) FetchQuota(ctx context.Context, account *Accou
 				},
 			}, nil
 		}
-		if len(groups) == 0 {
-			return nil, err
-		}
-	}
-	if modelsResp == nil {
-		modelsResp = &antigravity.FetchAvailableModelsResponse{}
+		return nil, err
 	}
 
 	// 调用 LoadCodeAssist 获取订阅等级和 AI Credits 余额（非关键路径，失败不影响主流程）
 	tierRaw, tierNormalized, loadResp := f.fetchSubscriptionTier(ctx, client, accessToken)
 
 	// 转换为 UsageInfo
-	usageInfo := f.buildUsageInfo(modelsResp, tierRaw, tierNormalized, loadResp)
-	usageInfo.AntigravityQuotaSummaryStatus = "unavailable"
-	if len(groups) > 0 {
-		usageInfo.AntigravityQuotaSummaryStatus = "available"
-		usageInfo.AntigravityQuotaGroups = append(groups, usageInfo.AntigravityQuotaGroups...)
-	}
+	usageInfo := f.buildUsageInfo(summary, tierRaw, tierNormalized, loadResp)
 
 	return &QuotaResult{
 		UsageInfo: usageInfo,
-		Raw:       modelsRaw,
 	}, nil
 }
 
@@ -149,73 +126,19 @@ func normalizeTier(raw string) string {
 	}
 }
 
-// buildUsageInfo 将 API 响应转换为 UsageInfo。
-func (f *AntigravityQuotaFetcher) buildUsageInfo(modelsResp *antigravity.FetchAvailableModelsResponse, tierRaw, tierNormalized string, loadResp *antigravity.LoadCodeAssistResponse) *UsageInfo {
+// buildUsageInfo exposes only the two shared pools and their 5-hour/weekly windows.
+func (f *AntigravityQuotaFetcher) buildUsageInfo(summary *antigravity.QuotaSummary, tierRaw, tierNormalized string, loadResp *antigravity.LoadCodeAssistResponse) *UsageInfo {
 	now := time.Now()
 	info := &UsageInfo{
-		UpdatedAt:               &now,
-		AntigravityQuota:        make(map[string]*AntigravityModelQuota),
-		AntigravityQuotaDetails: make(map[string]*AntigravityModelDetail),
-		SubscriptionTier:        tierNormalized,
-		SubscriptionTierRaw:     tierRaw,
+		UpdatedAt:                     &now,
+		AntigravityQuotaGroups:        antigravitySummaryGroups(summary),
+		AntigravityQuotaSummaryStatus: "unavailable",
+		SubscriptionTier:              tierNormalized,
+		SubscriptionTierRaw:           tierRaw,
 	}
-
-	// 遍历所有模型，填充 AntigravityQuota 和 AntigravityQuotaDetails
-	for modelName, modelInfo := range modelsResp.Models {
-		if modelInfo.QuotaInfo == nil && modelInfo.WeeklyQuotaInfo == nil {
-			continue
-		}
-
-		// remainingFraction 是剩余比例 (0.0-1.0)，转换为使用率百分比
-		if modelInfo.QuotaInfo.HasRemainingFraction() {
-			info.AntigravityQuota[modelName] = &AntigravityModelQuota{
-				Utilization: int((1.0 - modelInfo.QuotaInfo.RemainingFraction) * 100),
-				ResetTime:   modelInfo.QuotaInfo.ResetTime,
-			}
-		}
-
-		// 填充模型详细能力信息
-		detail := &AntigravityModelDetail{
-			DisplayName:        modelInfo.DisplayName,
-			SupportsImages:     modelInfo.SupportsImages,
-			SupportsThinking:   modelInfo.SupportsThinking,
-			ThinkingBudget:     modelInfo.ThinkingBudget,
-			Recommended:        modelInfo.Recommended,
-			MaxTokens:          modelInfo.MaxTokens,
-			MaxOutputTokens:    modelInfo.MaxOutputTokens,
-			SupportedMimeTypes: modelInfo.SupportedMimeTypes,
-		}
-		info.AntigravityQuotaDetails[modelName] = detail
+	if len(info.AntigravityQuotaGroups) > 0 {
+		info.AntigravityQuotaSummaryStatus = "available"
 	}
-	info.AntigravityQuotaGroups = antigravityModelGroups(modelsResp)
-
-	// 废弃模型转发规则
-	if len(modelsResp.DeprecatedModelIDs) > 0 {
-		info.ModelForwardingRules = make(map[string]string, len(modelsResp.DeprecatedModelIDs))
-		for oldID, deprecated := range modelsResp.DeprecatedModelIDs {
-			info.ModelForwardingRules[oldID] = deprecated.NewModelID
-		}
-	}
-
-	// 同时设置 FiveHour 用于兼容展示（取主要模型）
-	priorityModels := []string{"claude-sonnet-4-20250514", "claude-sonnet-4", "gemini-2.5-pro"}
-	for _, modelName := range priorityModels {
-		if modelInfo, ok := modelsResp.Models[modelName]; ok && modelInfo.QuotaInfo.HasRemainingFraction() {
-			utilization := (1.0 - modelInfo.QuotaInfo.RemainingFraction) * 100
-			progress := &UsageProgress{
-				Utilization: utilization,
-			}
-			if modelInfo.QuotaInfo.ResetTime != "" {
-				if resetTime, err := time.Parse(time.RFC3339, modelInfo.QuotaInfo.ResetTime); err == nil {
-					progress.ResetsAt = &resetTime
-					progress.RemainingSeconds = int(time.Until(resetTime).Seconds())
-				}
-			}
-			info.FiveHour = progress
-			break
-		}
-	}
-
 	if loadResp != nil {
 		for _, credit := range loadResp.GetAvailableCredits() {
 			info.AICredits = append(info.AICredits, AICredit{

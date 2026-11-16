@@ -23,9 +23,9 @@ import "time"
 //   - "monthly"    月窗口（OpenCode Go）
 //   - "daily"      日窗口（Gemini 日配额 / Grok 日请求）
 //   - "30d"        30 天窗口（Grok 月度）
-//   - "total"      无窗口语义的总量额度（Antigravity per-model 等）
+//   - "total"      无窗口语义的总量额度
 //
-// 同一 Window 可能出现多条（Gemini 多档日配额、Antigravity per-model、
+// 同一 Window 可能出现多条（Gemini 多档日配额、Antigravity shared pools、
 // Grok requests/tokens），用 Label 区分：Label 是机器 token（requests/tokens/
 // shared/pro/flash 或模型名），前端已知 token 走 i18n，未知原样展示。
 type MonitorQuotaTier struct {

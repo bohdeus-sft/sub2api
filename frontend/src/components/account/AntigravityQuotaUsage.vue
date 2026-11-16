@@ -26,56 +26,18 @@
     <p v-if="!summaryGroups.length" class="whitespace-normal text-[10px] text-gray-500 dark:text-gray-400" data-test="antigravity-summary-unavailable">
       {{ t('admin.accounts.antigravityQuota.summaryUnavailable') }}
     </p>
-    <details v-if="modelGroups.length" class="text-[10px] text-gray-500 dark:text-gray-400">
-      <summary class="cursor-pointer">{{ t('admin.accounts.antigravityQuota.modelDetails') }}</summary>
-      <p class="my-1 whitespace-normal">{{ t('admin.accounts.antigravityQuota.modelDetailsHint') }}</p>
-      <div
-        class="max-h-64 overflow-y-auto pr-1"
-        role="region"
-        :aria-label="t('admin.accounts.antigravityQuota.modelDetails')"
-        tabindex="0"
-      >
-        <div v-for="group in modelGroups" :key="group.id" class="my-2 space-y-1" :title="group.id">
-          <div class="break-words">{{ group.display_name }}</div>
-          <div v-for="bucket in group.buckets" :key="bucket.id" :title="bucketTitle(bucket)" :data-quota-bucket="bucket.id">
-            <UsageProgressBar
-              v-if="remainingPercent(bucket) !== null && !bucket.disabled"
-              :label="windowLabel(bucket)"
-              :utilization="remainingPercent(bucket) ?? 0"
-              :resets-at="bucket.reset_time || null"
-              color="indigo"
-              remaining-capacity
-              label-width="auto"
-            />
-            <div v-else>
-              {{ windowLabel(bucket) }} · {{ bucket.disabled ? t('admin.accounts.antigravityQuota.notApplicable') : t('admin.accounts.antigravityQuota.unknown') }}
-              <time v-if="bucket.reset_time" :datetime="bucket.reset_time"> · {{ resetLabel(bucket.reset_time) }}</time>
-            </div>
-          </div>
-        </div>
-      </div>
-    </details>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { AccountUsageInfo, AntigravityQuotaBucket, AntigravityQuotaGroup } from '@/types'
+import type { AccountUsageInfo, AntigravityQuotaBucket } from '@/types'
 import UsageProgressBar from './UsageProgressBar.vue'
 
 const props = defineProps<{ usage: AccountUsageInfo | null }>()
 const { t } = useI18n()
-const summaryGroups = computed(() => props.usage?.antigravity_quota_groups?.filter((group) => group.source === 'summary') ?? [])
-const modelGroups = computed<AntigravityQuotaGroup[]>(() => {
-  const reported = props.usage?.antigravity_quota_groups?.filter((group) => group.source === 'model') ?? []
-  if (reported.length) return reported
-  // Compatibility with older servers; every reported model remains visible.
-  return Object.entries(props.usage?.antigravity_quota ?? {}).sort(([a], [b]) => a.localeCompare(b)).map(([id, quota]) => ({
-    id, display_name: id, source: 'model',
-    buckets: [{ id: `${id}/quota`, display_name: '', window: '', utilization: quota.utilization, reset_time: quota.reset_time, disabled: false }]
-  }))
-})
+const summaryGroups = computed(() => props.usage?.antigravity_quota_groups ?? [])
 
 function remainingPercent(bucket: AntigravityQuotaBucket): number | null {
   const used = bucket.utilization

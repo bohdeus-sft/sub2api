@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -289,18 +288,20 @@ func usageQuotaTiers(usage *UsageInfo) []domain.MonitorQuotaTier {
 	// Grok requests/tokens 两个日窗口 + 月度计费窗口。
 	appendQuotaWindowTier(&tiers, "daily", "requests", usage.GrokRequestQuota)
 	appendQuotaWindowTier(&tiers, "daily", "tokens", usage.GrokTokenQuota)
-	// Antigravity per-model 总量额度，Label = 模型名（按名排序保证输出稳定）。
-	for _, model := range sortedQuotaModelNames(usage.AntigravityQuota) {
-		q := usage.AntigravityQuota[model]
-		if q == nil {
-			continue
+	for _, group := range usage.AntigravityQuotaGroups {
+		for _, bucket := range group.Buckets {
+			if bucket.Disabled || bucket.Utilization == nil {
+				continue
+			}
+			window := bucket.Window
+			if window == "weekly" {
+				window = "7d"
+			}
+			tiers = append(tiers, domain.MonitorQuotaTier{
+				Window: window, Label: group.DisplayName,
+				UsedPercent: *bucket.Utilization, ResetAt: bucket.ResetTime,
+			})
 		}
-		tiers = append(tiers, domain.MonitorQuotaTier{
-			Window:      "total",
-			Label:       model,
-			UsedPercent: float64(q.Utilization),
-			ResetAt:     q.ResetTime,
-		})
 	}
 	if len(tiers) == 0 {
 		return nil
@@ -351,15 +352,6 @@ func appendQuotaWindowTier(tiers *[]domain.MonitorQuotaTier, window, label strin
 		tier.ResetAt = time.Unix(*q.ResetUnix, 0).UTC().Format(time.RFC3339)
 	}
 	*tiers = append(*tiers, tier)
-}
-
-func sortedQuotaModelNames(quotas map[string]*AntigravityModelQuota) []string {
-	names := make([]string, 0, len(quotas))
-	for name := range quotas {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
 }
 
 // fetchCNQuota 国产 coding plan：CNProviderQuotaService.QueryUsageForAccount → 快照。

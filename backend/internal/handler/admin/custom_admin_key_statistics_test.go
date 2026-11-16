@@ -69,12 +69,12 @@ func TestScopedAdminOpenAIRejectsBeforeUpstream(t *testing.T) {
 
 func TestScopedAdminUsageProjectionKeepsPlatformQuotaAndHidesCosts(t *testing.T) {
 	a := &service.Account{ID: 1, Platform: "openai", Type: "oauth", GroupIDs: []int64{1}}
-	u := &service.UsageInfo{FiveHour: &service.UsageProgress{Utilization: 25, WindowStats: &service.WindowStats{Cost: 123}}, SevenDaySonnet: &service.UsageProgress{Utilization: 30}, GeminiProDaily: &service.UsageProgress{Utilization: 40}, AntigravityQuota: map[string]*service.AntigravityModelQuota{"model": {Utilization: 50}}, Error: "TOKEN_SECRET", ValidationURL: "URL_SECRET", ForbiddenReason: "IDENTITY_SECRET"}
+	u := &service.UsageInfo{FiveHour: &service.UsageProgress{Utilization: 25, WindowStats: &service.WindowStats{Cost: 123}}, SevenDaySonnet: &service.UsageProgress{Utilization: 30}, GeminiProDaily: &service.UsageProgress{Utilization: 40}, AntigravityQuotaGroups: []service.AntigravityQuotaGroup{{ID: "gemini", DisplayName: "Gemini Models"}}, Error: "TOKEN_SECRET", ValidationURL: "URL_SECRET", ForbiddenReason: "IDENTITY_SECRET"}
 	out := scopedUsageDTO(u, statisticsPolicy("accounts.usage.read"), a)
 	require.Nil(t, out["five_hour"].(*service.UsageProgress).WindowStats)
 	require.NotNil(t, out["seven_day_sonnet"])
 	require.NotNil(t, out["gemini_pro_daily"])
-	require.NotNil(t, out["antigravity_quota"])
+	require.NotNil(t, out["antigravity_quota_groups"])
 	raw, err := json.Marshal(out)
 	require.NoError(t, err)
 	require.NotContains(t, string(raw), "SECRET")

@@ -156,12 +156,6 @@ type UsageProgress struct {
 	LimitRequests      int64        `json:"limit_requests,omitempty"`
 }
 
-// AntigravityModelQuota Antigravity 单个模型的配额信息
-type AntigravityModelQuota struct {
-	Utilization int    `json:"utilization"` // 使用率 0-100
-	ResetTime   string `json:"reset_time"`  // 重置时间 ISO8601
-}
-
 type AntigravityQuotaBucket struct {
 	ID          string   `json:"id"`
 	DisplayName string   `json:"display_name"`
@@ -174,20 +168,7 @@ type AntigravityQuotaBucket struct {
 type AntigravityQuotaGroup struct {
 	ID          string                   `json:"id"`
 	DisplayName string                   `json:"display_name"`
-	Source      string                   `json:"source"` // summary or model
 	Buckets     []AntigravityQuotaBucket `json:"buckets"`
-}
-
-// AntigravityModelDetail Antigravity 单个模型的详细能力信息
-type AntigravityModelDetail struct {
-	DisplayName        string          `json:"display_name,omitempty"`
-	SupportsImages     *bool           `json:"supports_images,omitempty"`
-	SupportsThinking   *bool           `json:"supports_thinking,omitempty"`
-	ThinkingBudget     *int            `json:"thinking_budget,omitempty"`
-	Recommended        *bool           `json:"recommended,omitempty"`
-	MaxTokens          *int            `json:"max_tokens,omitempty"`
-	MaxOutputTokens    *int            `json:"max_output_tokens,omitempty"`
-	SupportedMimeTypes map[string]bool `json:"supported_mime_types,omitempty"`
 }
 
 // AICredit 表示 Antigravity 账号的 AI Credits 余额信息。
@@ -212,10 +193,9 @@ type UsageInfo struct {
 	GeminiProMinute    *UsageProgress `json:"gemini_pro_minute,omitempty"`    // Gemini Pro RPM
 	GeminiFlashMinute  *UsageProgress `json:"gemini_flash_minute,omitempty"`  // Gemini Flash RPM
 
-	// Antigravity 多模型配额
-	AntigravityQuota              map[string]*AntigravityModelQuota `json:"antigravity_quota,omitempty"`
-	AntigravityQuotaGroups        []AntigravityQuotaGroup           `json:"antigravity_quota_groups,omitempty"`
-	AntigravityQuotaSummaryStatus string                            `json:"antigravity_quota_summary_status,omitempty"`
+	// Antigravity shared Gemini and Claude/GPT quota windows
+	AntigravityQuotaGroups        []AntigravityQuotaGroup `json:"antigravity_quota_groups,omitempty"`
+	AntigravityQuotaSummaryStatus string                  `json:"antigravity_quota_summary_status,omitempty"`
 
 	// Grok / xAI 被动额度快照
 	GrokRequestQuota       *xai.QuotaWindow `json:"grok_request_quota,omitempty"`
@@ -239,14 +219,8 @@ type UsageInfo struct {
 	SubscriptionTier    string `json:"subscription_tier,omitempty"`     // 归一化订阅等级: FREE/PRO/ULTRA/UNKNOWN
 	SubscriptionTierRaw string `json:"subscription_tier_raw,omitempty"` // 上游原始订阅等级名称
 
-	// Antigravity 模型详细能力信息（与 antigravity_quota 同 key）
-	AntigravityQuotaDetails map[string]*AntigravityModelDetail `json:"antigravity_quota_details,omitempty"`
-
 	// Antigravity AI Credits 余额
 	AICredits []AICredit `json:"ai_credits,omitempty"`
-
-	// Antigravity 废弃模型转发规则 (old_model_id -> new_model_id)
-	ModelForwardingRules map[string]string `json:"model_forwarding_rules,omitempty"`
 
 	// Antigravity 账号是否被上游禁止 (HTTP 403)
 	IsForbidden     bool   `json:"is_forbidden,omitempty"`

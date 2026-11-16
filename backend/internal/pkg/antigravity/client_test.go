@@ -1611,15 +1611,10 @@ func TestClient_FetchAvailableModels_Success_RealCall(t *testing.T) {
 		_, _ = w.Write([]byte(`{
 			"models": {
 				"gemini-2.0-flash": {
-					"quotaInfo": {
-						"remainingFraction": 0.85,
-						"resetTime": "2025-01-01T00:00:00Z"
-					}
+					"displayName": "Gemini Flash"
 				},
 				"gemini-2.5-pro": {
-					"quotaInfo": {
-						"remainingFraction": 0.5
-					}
+					"displayName": "Gemini Pro"
 				}
 			}
 		}`))
@@ -1644,25 +1639,16 @@ func TestClient_FetchAvailableModels_Success_RealCall(t *testing.T) {
 	if !ok {
 		t.Fatal("缺少 gemini-2.0-flash 模型")
 	}
-	if flashModel.QuotaInfo == nil {
-		t.Fatal("gemini-2.0-flash QuotaInfo 不应为 nil")
-	}
-	if flashModel.QuotaInfo.RemainingFraction != 0.85 {
-		t.Errorf("RemainingFraction 不匹配: got %f, want 0.85", flashModel.QuotaInfo.RemainingFraction)
-	}
-	if flashModel.QuotaInfo.ResetTime != "2025-01-01T00:00:00Z" {
-		t.Errorf("ResetTime 不匹配: got %s", flashModel.QuotaInfo.ResetTime)
+	if flashModel.DisplayName != "Gemini Flash" {
+		t.Errorf("unexpected flash display name: %s", flashModel.DisplayName)
 	}
 
 	proModel, ok := resp.Models["gemini-2.5-pro"]
 	if !ok {
 		t.Fatal("缺少 gemini-2.5-pro 模型")
 	}
-	if proModel.QuotaInfo == nil {
-		t.Fatal("gemini-2.5-pro QuotaInfo 不应为 nil")
-	}
-	if proModel.QuotaInfo.RemainingFraction != 0.5 {
-		t.Errorf("RemainingFraction 不匹配: got %f, want 0.5", proModel.QuotaInfo.RemainingFraction)
+	if proModel.DisplayName != "Gemini Pro" {
+		t.Errorf("unexpected pro display name: %s", proModel.DisplayName)
 	}
 
 	// 验证原始 JSON map

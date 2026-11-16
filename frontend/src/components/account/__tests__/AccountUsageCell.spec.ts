@@ -456,77 +456,22 @@ describe('AccountUsageCell', () => {
     expect(wrapper.text()).not.toContain('-')
   })
 
-  it('Antigravity preserves each reported image model quota', async () => {
-    getUsage.mockResolvedValue({
-      antigravity_quota: {
-        'gemini-2.5-flash-image': {
-          utilization: 45,
-          reset_time: '2026-03-01T11:00:00Z'
-        },
-        'gemini-3.1-flash-image': {
-          utilization: 20,
-          reset_time: '2026-03-01T10:00:00Z'
-        },
-        'gemini-3-pro-image': {
-          utilization: 70,
-          reset_time: '2026-03-01T09:00:00Z'
-        }
-      }
-    })
-
-    const wrapper = mount(AccountUsageCell, {
-      props: {
-        account: makeAccount({
-          id: 1001,
-          platform: 'antigravity',
-          type: 'oauth',
-          extra: {}
-        })
-      },
-      global: {
-        stubs: {
-          UsageProgressBar: {
-            props: ['label', 'utilization', 'resetsAt', 'color'],
-            template: '<div class="usage-bar">{{ label }}|{{ utilization }}|{{ resetsAt }}</div>'
-          },
-          AccountQuotaInfo: true
-        }
-      }
-    })
-
-    await flushPromises()
-
-    expect(wrapper.findAll('.usage-bar')).toHaveLength(3)
-    expect(wrapper.text()).toContain('gemini-2.5-flash-image')
-    expect(wrapper.text()).toContain('gemini-3.1-flash-image')
-    expect(wrapper.text()).toContain('gemini-3-pro-image')
-    expect(wrapper.text()).toContain('admin.accounts.antigravityQuota.reported|30|2026-03-01T09:00:00Z')
-    expect(wrapper.text()).toContain('admin.accounts.antigravityQuota.summaryUnavailable')
-  })
-
   it('Antigravity shows the 5-hour and weekly window of each quota group when the summary is present', async () => {
     getUsage.mockResolvedValue({
-      antigravity_quota: {
-        'gemini-3-flash': { utilization: 99, reset_time: '2026-11-11T15:52:48Z' }
-      },
       antigravity_quota_groups: [
         {
-          id: 'gemini', display_name: 'Gemini Models', source: 'summary',
+          id: 'gemini', display_name: 'Gemini Models',
           buckets: [
             { id: 'bucket-1', display_name: '', disabled: false, window: '5h', utilization: 60, reset_time: '2026-11-04T20:52:48Z' },
             { id: 'bucket-2', display_name: '', disabled: false, window: 'weekly', utilization: 25, reset_time: '2026-11-11T15:52:48Z' }
           ]
         },
         {
-          id: '3p', display_name: 'Claude and GPT models', source: 'summary',
+          id: '3p', display_name: 'Claude and GPT models',
           buckets: [
             { id: 'bucket-3', display_name: '', disabled: false, window: '5h', utilization: 0, reset_time: '' },
             { id: 'bucket-4', display_name: '', disabled: false, window: 'weekly', utilization: 10, reset_time: '2026-11-11T15:52:48Z' }
           ]
-        },
-        {
-          id: 'gemini-argon-wtu', display_name: 'Gemini 4 Argon', source: 'summary',
-          buckets: [{ id: 'bucket-5', display_name: '', disabled: false, window: 'weekly', utilization: 20, reset_time: '2026-11-11T17:11:15Z' }]
         }
       ]
     })
@@ -554,24 +499,19 @@ describe('AccountUsageCell', () => {
       'admin.accounts.antigravityQuota.weekly|75|2026-11-11T15:52:48Z',
       'admin.accounts.antigravityQuota.fiveHour|100|',
       'admin.accounts.antigravityQuota.weekly|90|2026-11-11T15:52:48Z',
-      // Pro plans' separate Argon quota is its own row, not a second Claude/GPT week.
-      'admin.accounts.antigravityQuota.weekly|80|2026-11-11T17:11:15Z',
-      'admin.accounts.antigravityQuota.reported|1|2026-11-11T15:52:48Z'
     ])
-    expect(wrapper.find('details').attributes('open')).toBeUndefined()
-    expect(wrapper.text()).toContain('Gemini 4 Argon')
-    expect(wrapper.text()).not.toContain('gemini3Flash')
+    expect(wrapper.find('details').exists()).toBe(false)
   })
 
   it('Antigravity query button refreshes past the server cache', async () => {
     const first = {
       antigravity_quota_groups: [
-        { id: '3p', display_name: 'Claude and GPT models', source: 'summary', buckets: [{ id: '3p-weekly', display_name: '', disabled: false, window: 'weekly', utilization: 100, reset_time: '2026-11-12T03:39:37Z' }] }
+        { id: '3p', display_name: 'Claude and GPT models', buckets: [{ id: '3p-weekly', display_name: '', disabled: false, window: 'weekly', utilization: 100, reset_time: '2026-11-12T03:39:37Z' }] }
       ]
     }
     const upgraded = {
       antigravity_quota_groups: [
-        { id: '3p', display_name: 'Claude and GPT models', source: 'summary', buckets: [{ id: '3p-weekly', display_name: '', disabled: false, window: 'weekly', utilization: 0, reset_time: '2026-11-14T21:22:49Z' }] }
+        { id: '3p', display_name: 'Claude and GPT models', buckets: [{ id: '3p-weekly', display_name: '', disabled: false, window: 'weekly', utilization: 0, reset_time: '2026-11-14T21:22:49Z' }] }
       ]
     }
     getUsage.mockResolvedValueOnce(first).mockResolvedValueOnce(upgraded)

@@ -7,15 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/servertiming"
 )
 
-// QuotaSummary contains the actual quota pools, including weekly limits that
-// fetchAvailableModels does not consistently expose.
+// QuotaSummary contains the upstream shared quota pools.
 type QuotaSummary struct {
 	Groups  []QuotaGroup  `json:"groups"`
 	Buckets []QuotaBucket `json:"buckets"`
@@ -77,8 +75,11 @@ func (c *Client) RetrieveUserQuotaSummary(ctx context.Context, accessToken, proj
 			return nil, fmt.Errorf("quota summary exceeds %d bytes", bodyLimit)
 		}
 		if resp.StatusCode != http.StatusOK {
+			if resp.StatusCode == http.StatusForbidden {
+				return nil, &ForbiddenError{StatusCode: resp.StatusCode, Body: string(data)}
+			}
 			lastErr = fmt.Errorf("quota summary HTTP %d", resp.StatusCode)
-			if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden || (resp.StatusCode >= 300 && resp.StatusCode < 400) {
+			if resp.StatusCode == http.StatusUnauthorized || (resp.StatusCode >= 300 && resp.StatusCode < 400) {
 				return nil, lastErr
 			}
 			continue
@@ -97,26 +98,4 @@ func (c *Client) RetrieveUserQuotaSummary(ctx context.Context, accessToken, proj
 		lastErr = errors.New("quota summary endpoint unavailable")
 	}
 	return nil, lastErr
-}
-
-// Missing fractions must remain unknown rather than becoming an exhausted quota.
-func (q *ModelQuotaInfo) UnmarshalJSON(data []byte) error {
-	var wire struct {
-		RemainingFraction *float64 `json:"remainingFraction"`
-		ResetTime         string   `json:"resetTime"`
-	}
-	if err := json.Unmarshal(data, &wire); err != nil {
-		return err
-	}
-	q.ResetTime = wire.ResetTime
-	q.remainingFractionMissing = wire.RemainingFraction == nil
-	q.RemainingFraction = 0
-	if wire.RemainingFraction != nil {
-		q.RemainingFraction = *wire.RemainingFraction
-	}
-	return nil
-}
-
-func (q *ModelQuotaInfo) HasRemainingFraction() bool {
-	return q != nil && !q.remainingFractionMissing && !math.IsNaN(q.RemainingFraction) && !math.IsInf(q.RemainingFraction, 0) && q.RemainingFraction >= 0 && q.RemainingFraction <= 1
 }
