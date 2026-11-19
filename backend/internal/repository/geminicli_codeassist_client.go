@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
@@ -39,13 +40,13 @@ func (c *geminiCliCodeAssistClient) LoadCodeAssist(ctx context.Context, accessTo
 		SetSuccessResult(&out).
 		Post(c.baseURL + "/v1internal:loadCodeAssist")
 	if err != nil {
-		fmt.Printf("[CodeAssist] LoadCodeAssist request error: %v\n", err)
+		log.Printf("[CodeAssist] LoadCodeAssist request error: %v\n", err)
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	if !resp.IsSuccessState() {
 		body := resp.String()
 		sanitizedBody := geminicli.SanitizeBodyForLogs(body)
-		fmt.Printf("[CodeAssist] LoadCodeAssist failed: status %d, body: %s\n", resp.StatusCode, sanitizedBody)
+		log.Printf("[CodeAssist] LoadCodeAssist failed: status %d, body: %s\n", resp.StatusCode, sanitizedBody)
 
 		// Check if this is a SERVICE_DISABLED error and extract activation URL
 		if googleapi.IsServiceDisabledError(body) {
@@ -58,7 +59,7 @@ func (c *geminiCliCodeAssistClient) LoadCodeAssist(ctx context.Context, accessTo
 
 		return nil, fmt.Errorf("loadCodeAssist failed: status %d, body: %s", resp.StatusCode, sanitizedBody)
 	}
-	fmt.Printf("[CodeAssist] LoadCodeAssist success: status %d, response: %+v\n", resp.StatusCode, out)
+	log.Printf("[CodeAssist] LoadCodeAssist success: status %d, response: %+v\n", resp.StatusCode, out)
 	return &out, nil
 }
 
@@ -67,7 +68,7 @@ func (c *geminiCliCodeAssistClient) OnboardUser(ctx context.Context, accessToken
 		reqBody = defaultOnboardUserRequest()
 	}
 
-	fmt.Printf("[CodeAssist] OnboardUser request body: %+v\n", reqBody)
+	log.Printf("[CodeAssist] OnboardUser request body: %+v\n", reqBody)
 
 	var out geminicli.OnboardUserResponse
 	client, err := createGeminiCliReqClient(proxyURL)
@@ -83,13 +84,13 @@ func (c *geminiCliCodeAssistClient) OnboardUser(ctx context.Context, accessToken
 		SetSuccessResult(&out).
 		Post(c.baseURL + "/v1internal:onboardUser")
 	if err != nil {
-		fmt.Printf("[CodeAssist] OnboardUser request error: %v\n", err)
+		log.Printf("[CodeAssist] OnboardUser request error: %v\n", err)
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	if !resp.IsSuccessState() {
 		body := resp.String()
 		sanitizedBody := geminicli.SanitizeBodyForLogs(body)
-		fmt.Printf("[CodeAssist] OnboardUser failed: status %d, body: %s\n", resp.StatusCode, sanitizedBody)
+		log.Printf("[CodeAssist] OnboardUser failed: status %d, body: %s\n", resp.StatusCode, sanitizedBody)
 
 		// Check if this is a SERVICE_DISABLED error and extract activation URL
 		if googleapi.IsServiceDisabledError(body) {
@@ -102,7 +103,7 @@ func (c *geminiCliCodeAssistClient) OnboardUser(ctx context.Context, accessToken
 
 		return nil, fmt.Errorf("onboardUser failed: status %d, body: %s", resp.StatusCode, sanitizedBody)
 	}
-	fmt.Printf("[CodeAssist] OnboardUser success: status %d, response: %+v\n", resp.StatusCode, out)
+	log.Printf("[CodeAssist] OnboardUser success: status %d, response: %+v\n", resp.StatusCode, out)
 	return &out, nil
 }
 

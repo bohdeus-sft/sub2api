@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"log/slog"
 	"runtime/debug"
 	"slices"
@@ -1345,6 +1346,8 @@ func newSchedulerAccountMetaRevision() string {
 }
 
 func marshalSchedulerCacheAccount(account service.Account) ([]byte, []byte, error) {
+	account.ErrorMessage = privacy.AccountDiagnostic(account.ErrorMessage)
+	account.TempUnschedulableReason = privacy.Diagnostic(account.TempUnschedulableReason)
 	fullPayload, err := json.Marshal(account)
 	if err != nil {
 		return nil, nil, fmt.Errorf("marshal account: %w", err)

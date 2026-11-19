@@ -119,6 +119,7 @@ export default {
         todayStats: '今日统计',
         groups: '分组',
         usageWindows: '用量窗口',
+        usageUpdatedAt: '额度最后更新时间',
         proxy: '代理',
         lastUsed: '最近使用',
         createdAt: '创建时间',
@@ -511,6 +512,15 @@ export default {
           unavailableDesc: '服务不可用 - 暂停 30 分钟'
         }
       },
+      antigravityQuota: {
+        remaining: '剩余额度',
+        fiveHour: '5 小时',
+        weekly: '每周',
+        reported: '已报告额度',
+        unknown: '未知',
+        notApplicable: '不适用',
+        summaryUnavailable: '5 小时/每周配额汇总不可用。',
+      },
       usageWindow: {
         statsTitle: '5小时窗口用量统计',
         statsTitleDaily: '每日用量统计',
@@ -521,8 +531,6 @@ export default {
         gemini3Image: 'G31FI',
         antigravityGemini5h: 'G·5h',
         antigravityGeminiWeekly: 'G·周',
-        antigravityArgon5h: 'A·5h',
-        antigravityArgonWeekly: 'A·周',
         antigravityOther5h: 'C·5h',
         antigravityOtherWeekly: 'C·周',
         claude: 'Claude',

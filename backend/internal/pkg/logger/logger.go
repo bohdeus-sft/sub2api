@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -131,6 +132,9 @@ func CurrentLevel() string {
 }
 
 func SetSink(sink Sink) {
+	if privacy.Enabled() {
+		return
+	}
 	currentSink.Store(sinkState{sink: sink})
 }
 
@@ -149,6 +153,9 @@ func loadSink() Sink {
 // WriteSinkEvent 直接写入日志 sink，不经过全局日志级别门控。
 // 用于需要“可观测性入库”与“业务输出级别”解耦的场景（例如 ops 系统日志索引）。
 func WriteSinkEvent(level, component, message string, fields map[string]any) {
+	if privacy.Enabled() {
+		return
+	}
 	sink := loadSink()
 	if sink == nil {
 		return
@@ -265,6 +272,12 @@ func buildLogger(options InitOptions) (*zap.Logger, zap.AtomicLevel, error) {
 		enc = zapcore.NewConsoleEncoder(encoderCfg)
 	} else {
 		enc = zapcore.NewJSONEncoder(encoderCfg)
+	}
+
+	if privacy.Enabled() {
+		// Always visible, bounded by Docker rotation. No file or database sink.
+		core := &privacyCore{core: zapcore.NewCore(zapcore.NewJSONEncoder(encoderCfg), zapcore.Lock(os.Stdout), atomic)}
+		return zap.New(core, zap.AddCaller()), atomic, nil
 	}
 
 	sinkCore := newSinkCore()

@@ -3,6 +3,7 @@ package logger
 import (
 	"context"
 	"log/slog"
+	"runtime"
 	"strings"
 	"time"
 
@@ -48,15 +49,21 @@ func (h *slogZapHandler) Handle(_ context.Context, record slog.Record) error {
 		return true
 	})
 
+	level := LevelInfo
 	switch {
 	case record.Level >= slog.LevelError:
-		h.logger.Error(record.Message, fields...)
+		level = LevelError
 	case record.Level >= slog.LevelWarn:
-		h.logger.Warn(record.Message, fields...)
+		level = LevelWarn
 	case record.Level <= slog.LevelDebug:
-		h.logger.Debug(record.Message, fields...)
-	default:
-		h.logger.Info(record.Message, fields...)
+		level = LevelDebug
+	}
+	if entry := h.logger.Check(level, record.Message); entry != nil {
+		if record.PC != 0 {
+			frame, _ := runtime.CallersFrames([]uintptr{record.PC}).Next()
+			entry.Caller = zapcore.NewEntryCaller(frame.PC, frame.File, frame.Line, frame.File != "")
+		}
+		entry.Write(fields...)
 	}
 	return nil
 }

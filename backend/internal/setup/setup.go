@@ -15,6 +15,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/Wei-Shaw/sub2api/internal/repository"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -485,6 +486,9 @@ func bootstrapAdminUser(ctx context.Context, db *sql.DB, cfg *SetupConfig) (bool
 // never affected. A random email keeps fresh installs off the well-known
 // default username that brute-force scanners target (issue #7850).
 func prepareAdminCredentials(admin *AdminConfig) (emailGenerated, passwordGenerated bool, err error) {
+	if privacy.Enabled() && (strings.TrimSpace(admin.Email) == "" || strings.TrimSpace(admin.Password) == "") {
+		return false, false, errors.New("ADMIN_EMAIL and ADMIN_PASSWORD must be set for personal deployment; generated credentials cannot be printed safely")
+	}
 	admin.Email = strings.TrimSpace(admin.Email)
 	if admin.Email == "" {
 		email, genErr := generateAdminEmail()

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
 import AccountsView from '../AccountsView.vue'
+import { formatDateTime } from '@/utils/format'
 
 const {
   listAccounts,
@@ -78,6 +79,10 @@ const DataTableStub = {
       <div v-for="row in data" :key="row.id" data-test="account-rate">
         <slot name="cell-rate_multiplier" :row="row" />
       </div>
+      <div v-for="row in data" :key="row.id">
+        <slot name="cell-usage" :row="row" />
+        <div data-test="usage-updated-at"><slot name="cell-usage_updated_at" :row="row" /></div>
+      </div>
     </div>
   `
 }
@@ -88,7 +93,7 @@ const HelpTooltipStub = {
   template: '<span data-test="usage-windows-hint">{{ content }}</span>'
 }
 
-function mountView() {
+function mountView(accountUsageCellStub: boolean | { emits: string[]; template: string } = true) {
   return mount(AccountsView, {
     global: {
       stubs: {
@@ -124,7 +129,7 @@ function mountView() {
         AccountStatusIndicator: true,
         AccountTodayStatsCell: true,
         AccountGroupsCell: true,
-        AccountUsageCell: true,
+        AccountUsageCell: accountUsageCellStub,
         Icon: true
       }
     }
@@ -235,5 +240,40 @@ describe('admin AccountsView usage windows hint', () => {
     expect(wrapper.get('[data-test="account-rate"]').text()).toBe('0.065x')
     const indicator = wrapper.get('[data-testid="account-rate-sync-indicator"]')
     expect(indicator.attributes('title')).toBe('admin.accounts.upstreamBilling.syncedRateTooltip')
+  })
+
+  it('shows the OpenAI observation time and updates it from Query without adopting stale results', async () => {
+    const original = '2026-09-20T08:00:00Z'
+    const queried = '2026-09-24T09:15:30Z'
+    listAccounts.mockResolvedValueOnce({
+      items: [{
+        id: 42, name: 'codex', platform: 'openai', type: 'oauth', status: 'active',
+        schedulable: true, created_at: original, updated_at: original,
+        extra: {
+          codex_usage_updated_at: original,
+          passive_usage_sampled_at: '2026-09-23T12:00:00Z',
+          openai_usage_updated_at: '2026-09-23T13:00:00Z'
+        }
+      }],
+      total: 1, page: 1, page_size: 20, pages: 1
+    })
+    const wrapper = mountView({
+      emits: ['usage-loaded'],
+      template: `<div>
+              <button data-test="query-result" @click="$emit('usage-loaded', { updated_at: '${queried}' })" />
+              <button data-test="stale-result" @click="$emit('usage-loaded', { updated_at: '${original}' })" />
+              <button data-test="missing-result" @click="$emit('usage-loaded', { updated_at: null })" />
+            </div>`
+    })
+    await flushPromises()
+
+    const timestamp = () => wrapper.get('[data-test="usage-updated-at"]').text()
+    expect(timestamp()).toContain(formatDateTime(original, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }))
+    await wrapper.get('[data-test="query-result"]').trigger('click')
+    expect(timestamp()).toContain(formatDateTime(queried, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }))
+    await wrapper.get('[data-test="stale-result"]').trigger('click')
+    await wrapper.get('[data-test="missing-result"]').trigger('click')
+    expect(timestamp()).toContain(formatDateTime(queried, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }))
+    wrapper.unmount()
   })
 })

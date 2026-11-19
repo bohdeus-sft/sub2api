@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"strings"
 	"time"
 )
@@ -87,6 +88,9 @@ func NewPostgreSQLRepository(db *sql.DB) *PostgreSQLRepository {
 }
 
 func (r *PostgreSQLRepository) CreateStagingWithCapacity(ctx context.Context, snapshot PromptSnapshot, configVersion int64, maxAttempts, capacity int) (*Job, error) {
+	if privacy.Enabled() {
+		return nil, privacy.ErrDisabled
+	}
 	if r == nil || r.db == nil {
 		return nil, errors.New("prompt audit database unavailable")
 	}
@@ -170,6 +174,9 @@ func (r *PostgreSQLRepository) RefreshLease(ctx context.Context, jobID, claimVer
 }
 
 func (r *PostgreSQLRepository) Complete(ctx context.Context, job *Job, result *NormalizedResult, storePassEvents bool) (*Event, error) {
+	if privacy.Enabled() {
+		return nil, privacy.ErrDisabled
+	}
 	if job == nil || result == nil {
 		return nil, errors.New("prompt audit completion requires job and result")
 	}

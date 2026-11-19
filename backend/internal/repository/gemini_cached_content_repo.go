@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -28,6 +29,9 @@ const geminiCachedContentColumns = `id, public_id, user_id, api_key_id, group_id
  upstream_model, display_name, total_token_count, expire_time, channel_usage, created_at, updated_at`
 
 func (r *geminiCachedContentRepository) Create(ctx context.Context, record *service.GeminiCachedContent) error {
+	if privacy.Enabled() {
+		record.DisplayName = ""
+	}
 	channelUsage, err := json.Marshal(record.ChannelUsage)
 	if err != nil {
 		return err

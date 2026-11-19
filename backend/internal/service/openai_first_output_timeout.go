@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/gin-gonic/gin"
 )
 
@@ -53,7 +54,7 @@ func newOpenAIFirstOutputStage(limit int64) *openAIFirstOutputStage {
 		limit:      limit,
 		createTemp: func() (*os.File, error) { return os.CreateTemp("", "sub2api-openai-first-output-*") },
 		removeFile: os.Remove,
-		memoryOnly: runtime.GOOS == "windows",
+		memoryOnly: privacy.Enabled() || runtime.GOOS == "windows",
 	}
 }
 

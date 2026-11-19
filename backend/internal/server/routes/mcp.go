@@ -22,11 +22,7 @@ func RegisterMCPRoutes(v1 *gin.RouterGroup, h *handler.Handlers, audit middlewar
 	stepUp middleware.StepUpAuthMiddleware, settings *service.SettingService,
 	limiter *middleware.PanelRateLimiter, allowedOrigins []string, redisClient *redis.Client,
 ) {
-	inner := gin.New()
-	inner.Use(gin.Recovery())
-	api := inner.Group("/api/v1")
-	RegisterUserRoutes(api, h, middleware.JWTAuthMiddleware(managementmcp.DispatchAuth(false)), audit, settings, limiter)
-	RegisterAdminRoutes(api, h, middleware.AdminAuthMiddleware(managementmcp.DispatchAuth(true)), audit, stepUp, settings, limiter)
+	inner := newMCPManagementRouter(h, audit, stepUp, settings, limiter)
 	transport := managementmcp.NewHandler(inner, allowedOrigins)
 	var handlers []gin.HandlerFunc
 	if redisClient != nil {
@@ -40,6 +36,19 @@ func RegisterMCPRoutes(v1 *gin.RouterGroup, h *handler.Handlers, audit middlewar
 	for _, method := range []string{"POST", "GET", "DELETE"} {
 		mcp.Handle(method, "", gin.WrapH(transport))
 	}
+}
+
+// newMCPManagementRouter keeps internal MCP dispatch under the same personal
+// privacy policy as the public router, including sanitized panic recovery.
+func newMCPManagementRouter(h *handler.Handlers, audit middleware.AuditLogMiddleware,
+	stepUp middleware.StepUpAuthMiddleware, settings *service.SettingService, limiter *middleware.PanelRateLimiter,
+) *gin.Engine {
+	inner := gin.New()
+	inner.Use(middleware.PersonalPrivacy(), middleware.Recovery())
+	api := inner.Group("/api/v1")
+	RegisterUserRoutes(api, h, middleware.JWTAuthMiddleware(managementmcp.DispatchAuth(false)), audit, settings, limiter)
+	RegisterAdminRoutes(api, h, middleware.AdminAuthMiddleware(managementmcp.DispatchAuth(true)), audit, stepUp, settings, limiter)
+	return inner
 }
 
 // RegisterMCPOAuthRoutes exposes OAuth discovery and public-client protocol

@@ -130,6 +130,35 @@ describe('AccountUsageCell', () => {
     })
   })
 
+  it('emits the upstream observation timestamp after an explicit OpenAI Query', async () => {
+    getUsage.mockResolvedValueOnce({
+      updated_at: '2026-09-20T08:00:00Z',
+      five_hour: { utilization: 5, resets_at: null },
+      seven_day: { utilization: 52, resets_at: null }
+    }).mockResolvedValueOnce({
+      updated_at: '2026-09-24T09:15:30Z',
+      five_hour: { utilization: 6, resets_at: null },
+      seven_day: { utilization: 53, resets_at: null }
+    })
+    const wrapper = mount(AccountUsageCell, {
+      props: { account: makeAccount({ id: 55, platform: 'openai', type: 'oauth' }) },
+      global: { stubs: {
+        UsageProgressBar: true,
+        OpenAIQuotaResetCell: { template: '<div><slot name="pre-actions" /></div>' }
+      } }
+    })
+    await flushPromises()
+
+    const query = wrapper.findAll('button').find(button => button.text().includes('admin.accounts.usageWindow.activeQuery'))
+    expect(query).toBeDefined()
+    await query!.trigger('click')
+    await flushPromises()
+
+    expect(getUsage).toHaveBeenLastCalledWith(55, 'active', true)
+    expect(wrapper.emitted('usage-loaded')?.at(-1)?.[0]).toMatchObject({ updated_at: '2026-09-24T09:15:30Z' })
+    wrapper.unmount()
+  })
+
   it('keeps cached Claude quota visible while a replacement batch is loading', async () => {
     const requestBatchedUsage = vi.fn()
     const wrapper = mount(AccountUsageCell, {
@@ -427,75 +456,22 @@ describe('AccountUsageCell', () => {
     expect(wrapper.text()).not.toContain('-')
   })
 
-  it('Antigravity 图片用量会聚合新旧 image 模型', async () => {
-    getUsage.mockResolvedValue({
-      antigravity_quota: {
-        'gemini-2.5-flash-image': {
-          utilization: 45,
-          reset_time: '2026-03-01T11:00:00Z'
-        },
-        'gemini-3.1-flash-image': {
-          utilization: 20,
-          reset_time: '2026-03-01T10:00:00Z'
-        },
-        'gemini-3-pro-image': {
-          utilization: 70,
-          reset_time: '2026-03-01T09:00:00Z'
-        }
-      }
-    })
-
-    const wrapper = mount(AccountUsageCell, {
-      props: {
-        account: makeAccount({
-          id: 1001,
-          platform: 'antigravity',
-          type: 'oauth',
-          extra: {}
-        })
-      },
-      global: {
-        stubs: {
-          UsageProgressBar: {
-            props: ['label', 'utilization', 'resetsAt', 'color'],
-            template: '<div class="usage-bar">{{ label }}|{{ utilization }}|{{ resetsAt }}</div>'
-          },
-          AccountQuotaInfo: true
-        }
-      }
-    })
-
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('admin.accounts.usageWindow.gemini3Image|70|2026-03-01T09:00:00Z')
-  })
-
   it('Antigravity shows the 5-hour and weekly window of each quota group when the summary is present', async () => {
     getUsage.mockResolvedValue({
-      antigravity_quota: {
-        'gemini-3-flash': { utilization: 99, reset_time: '2026-11-11T15:52:48Z' }
-      },
       antigravity_quota_groups: [
         {
-          key: 'gemini',
-          name: 'Gemini Models',
-          windows: [
-            { window: '5h', utilization: 60, resets_at: '2026-11-04T20:52:48Z' },
-            { window: 'weekly', utilization: 25, resets_at: '2026-11-11T15:52:48Z' }
+          id: 'gemini', display_name: 'Gemini Models',
+          buckets: [
+            { id: 'bucket-1', display_name: '', disabled: false, window: '5h', utilization: 60, reset_time: '2026-11-04T20:52:48Z' },
+            { id: 'bucket-2', display_name: '', disabled: false, window: 'weekly', utilization: 25, reset_time: '2026-11-11T15:52:48Z' }
           ]
         },
         {
-          key: '3p',
-          name: 'Claude and GPT models',
-          windows: [
-            { window: '5h', utilization: 0, resets_at: null },
-            { window: 'weekly', utilization: 10, resets_at: '2026-11-11T15:52:48Z' }
+          id: '3p', display_name: 'Claude and GPT models',
+          buckets: [
+            { id: 'bucket-3', display_name: '', disabled: false, window: '5h', utilization: 0, reset_time: '' },
+            { id: 'bucket-4', display_name: '', disabled: false, window: 'weekly', utilization: 10, reset_time: '2026-11-11T15:52:48Z' }
           ]
-        },
-        {
-          key: 'gemini-argon-wtu',
-          name: 'Gemini 4 Argon',
-          windows: [{ window: 'weekly', utilization: 20, resets_at: '2026-11-11T17:11:15Z' }]
         }
       ]
     })
@@ -519,26 +495,23 @@ describe('AccountUsageCell', () => {
 
     const bars = wrapper.findAll('.usage-bar').map((bar) => bar.text())
     expect(bars).toEqual([
-      'admin.accounts.usageWindow.antigravityGemini5h|60|2026-11-04T20:52:48Z',
-      'admin.accounts.usageWindow.antigravityGeminiWeekly|25|2026-11-11T15:52:48Z',
-      'admin.accounts.usageWindow.antigravityOther5h|0|',
-      'admin.accounts.usageWindow.antigravityOtherWeekly|10|2026-11-11T15:52:48Z',
-      // Pro plans' separate Argon quota is its own row, not a second Claude/GPT week.
-      'admin.accounts.usageWindow.antigravityArgonWeekly|20|2026-11-11T17:11:15Z'
+      'admin.accounts.antigravityQuota.fiveHour|40|2026-11-04T20:52:48Z',
+      'admin.accounts.antigravityQuota.weekly|75|2026-11-11T15:52:48Z',
+      'admin.accounts.antigravityQuota.fiveHour|100|',
+      'admin.accounts.antigravityQuota.weekly|90|2026-11-11T15:52:48Z',
     ])
-    // The per-model figure (one tighter window per model) is not shown next to the real windows.
-    expect(wrapper.text()).not.toContain('gemini3Flash')
+    expect(wrapper.find('details').exists()).toBe(false)
   })
 
   it('Antigravity query button refreshes past the server cache', async () => {
     const first = {
       antigravity_quota_groups: [
-        { key: '3p', name: 'Claude and GPT models', windows: [{ window: 'weekly', utilization: 100, resets_at: '2026-11-12T03:39:37Z' }] }
+        { id: '3p', display_name: 'Claude and GPT models', buckets: [{ id: '3p-weekly', display_name: '', disabled: false, window: 'weekly', utilization: 100, reset_time: '2026-11-12T03:39:37Z' }] }
       ]
     }
     const upgraded = {
       antigravity_quota_groups: [
-        { key: '3p', name: 'Claude and GPT models', windows: [{ window: 'weekly', utilization: 0, resets_at: '2026-11-14T21:22:49Z' }] }
+        { id: '3p', display_name: 'Claude and GPT models', buckets: [{ id: '3p-weekly', display_name: '', disabled: false, window: 'weekly', utilization: 0, reset_time: '2026-11-14T21:22:49Z' }] }
       ]
     }
     getUsage.mockResolvedValueOnce(first).mockResolvedValueOnce(upgraded)
@@ -558,7 +531,7 @@ describe('AccountUsageCell', () => {
       }
     })
     await flushPromises()
-    expect(wrapper.find('.usage-bar').text()).toContain('|100|')
+    expect(wrapper.find('.usage-bar').text()).toContain('|0|')
 
     const button = wrapper.find('[data-testid="antigravity-active-query"]')
     expect(button.exists()).toBe(true)
@@ -568,7 +541,7 @@ describe('AccountUsageCell', () => {
 
     // An active query that bypasses the cache (an upgrade or reset shows at once).
     expect(getUsage).toHaveBeenLastCalledWith(1006, 'active', true)
-    expect(wrapper.find('.usage-bar').text()).toContain('|0|2026-11-14T21:22:49Z')
+    expect(wrapper.find('.usage-bar').text()).toContain('|100|2026-11-14T21:22:49Z')
   })
 
   it('Antigravity 会显示 AI Credits 余额信息', async () => {

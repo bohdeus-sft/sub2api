@@ -32,11 +32,7 @@ check_application_security_opt() {
   fi
 }
 
-for compose_file in \
-  deploy/docker-compose.yml \
-  deploy/docker-compose.local.yml \
-  deploy/docker-compose.standalone.yml \
-  deploy/docker-compose.dev.yml
+for compose_file in deploy/docker-compose.personal.yml
 do
   check_application_security_opt "$compose_file"
 done

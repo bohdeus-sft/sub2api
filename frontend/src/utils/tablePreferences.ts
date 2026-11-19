@@ -2,7 +2,7 @@ const MIN_TABLE_PAGE_SIZE = 5
 const MAX_TABLE_PAGE_SIZE = 1000
 
 export const DEFAULT_TABLE_PAGE_SIZE = 20
-export const DEFAULT_TABLE_PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+export const DEFAULT_TABLE_PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100]
 
 const sanitizePageSize = (value: unknown): number | null => {
   const size = Number(value)
@@ -59,7 +59,7 @@ export const getConfiguredTablePageSizeOptions = (): number[] => {
     return [...DEFAULT_TABLE_PAGE_SIZE_OPTIONS]
   }
 
-  return unique.length > 0 ? unique : [...DEFAULT_TABLE_PAGE_SIZE_OPTIONS]
+  return Array.from(new Set([MIN_TABLE_PAGE_SIZE, ...unique])).sort((a, b) => a - b)
 }
 
 export const normalizeTablePageSize = (value: unknown): number => {

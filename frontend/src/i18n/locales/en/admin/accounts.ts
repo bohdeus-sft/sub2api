@@ -273,6 +273,7 @@ export default {
         todayStats: 'Today Stats',
         groups: 'Groups',
         usageWindows: 'Usage Windows',
+        usageUpdatedAt: 'Limit Last Updated',
         proxy: 'Proxy',
         lastUsed: 'Last Used',
         createdAt: 'Created',
@@ -1714,6 +1715,15 @@ export default {
         usageTrend: '30-Day Cost & Request Trend',
         noData: 'No usage data available for this account'
       },
+      antigravityQuota: {
+        remaining: 'Quota remaining',
+        fiveHour: '5 hours',
+        weekly: 'Weekly',
+        reported: 'Reported quota',
+        unknown: 'Unknown',
+        notApplicable: 'Not applicable',
+        summaryUnavailable: '5-hour/weekly quota summary unavailable.',
+      },
       usageWindow: {
         statsTitle: '5-Hour Window Usage Statistics',
         statsTitleDaily: 'Daily Usage Statistics',
@@ -1724,8 +1734,6 @@ export default {
         gemini3Image: 'G31FI',
         antigravityGemini5h: 'G·5h',
         antigravityGeminiWeekly: 'G·wk',
-        antigravityArgon5h: 'A·5h',
-        antigravityArgonWeekly: 'A·wk',
         antigravityOther5h: 'C·5h',
         antigravityOtherWeekly: 'C·wk',
         claude: 'Claude',

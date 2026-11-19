@@ -648,9 +648,13 @@ func TestUsageQuotaTiers_MapsAllWindowKinds(t *testing.T) {
 		GeminiFlashDaily:  &UsageProgress{Utilization: 33},
 		GrokRequestQuota:  &xai.QuotaWindow{Limit: &limit, Remaining: &remaining, ResetUnix: &resetUnix},
 		GrokTokenQuota:    &xai.QuotaWindow{Limit: &limit, Remaining: &remaining, ResetAt: "2026-08-19T00:00:00Z"},
-		AntigravityQuota: map[string]*AntigravityModelQuota{
-			"gemini-3-pro":   {Utilization: 45},
-			"gemini-3-flash": {Utilization: 55},
+		AntigravityQuotaGroups: []AntigravityQuotaGroup{
+			{ID: "gemini", DisplayName: "Gemini Models", Buckets: []AntigravityQuotaBucket{
+				{ID: "gemini-5h", Window: "5h", Utilization: quotaTestPercent(45)},
+				{ID: "gemini-weekly", Window: "weekly", Utilization: quotaTestPercent(55)},
+				{ID: "3p-5h", Window: "5h"},
+				{ID: "3p-weekly", Window: "weekly", Disabled: true, Utilization: quotaTestPercent(100)},
+			}},
 		},
 	}
 
@@ -678,8 +682,8 @@ func TestUsageQuotaTiers_MapsAllWindowKinds(t *testing.T) {
 	require.Contains(t, byKey, "daily/flash")
 	require.Contains(t, byKey, "daily/requests")
 	require.Contains(t, byKey, "daily/tokens")
-	require.Contains(t, byKey, "total/gemini-3-pro")
-	require.Contains(t, byKey, "total/gemini-3-flash")
+	require.Contains(t, byKey, "5h/Gemini Models")
+	require.Contains(t, byKey, "7d/Gemini Models")
 
 	// grok requests 窗口：used = limit - remaining，百分比 60%。
 	requests := byKey["daily/requests"]
@@ -784,3 +788,5 @@ func TestQuotaFetcher_OpenAIQuotaRefreshFailureDoesNotFlap(t *testing.T) {
 	}
 	require.Equal(t, []string{MonitorStatusDegraded, MonitorStatusDegraded, MonitorStatusDegraded}, statuses)
 }
+
+func quotaTestPercent(value float64) *float64 { return &value }

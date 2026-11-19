@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/redis/go-redis/v9"
 )
@@ -21,6 +22,9 @@ func NewImageTaskStore(rdb *redis.Client) service.ImageTaskStore {
 }
 
 func (s *imageTaskStore) Save(ctx context.Context, task *service.ImageTaskRecord, ttl time.Duration) error {
+	if privacy.Enabled() {
+		return privacy.ErrDisabled
+	}
 	data, err := json.Marshal(task)
 	if err != nil {
 		return err

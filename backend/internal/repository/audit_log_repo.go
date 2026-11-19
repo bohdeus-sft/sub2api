@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/lib/pq"
 )
@@ -59,6 +60,9 @@ func auditLogInsertValues(log *service.AuditLog) []any {
 }
 
 func (r *auditLogRepository) BatchInsert(ctx context.Context, logs []*service.AuditLog) (int64, error) {
+	if privacy.Enabled() {
+		return 0, nil
+	}
 	if r == nil || r.db == nil {
 		return 0, fmt.Errorf("nil audit log repository")
 	}
@@ -110,6 +114,9 @@ func (r *auditLogRepository) BatchInsert(ctx context.Context, logs []*service.Au
 }
 
 func (r *auditLogRepository) Insert(ctx context.Context, log *service.AuditLog) error {
+	if privacy.Enabled() {
+		return nil
+	}
 	if r == nil || r.db == nil {
 		return fmt.Errorf("nil audit log repository")
 	}

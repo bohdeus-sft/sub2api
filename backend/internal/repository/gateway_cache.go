@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/redis/go-redis/v9"
 )
@@ -236,6 +237,9 @@ const reasoningContentDefaultTTL = 7 * 24 * time.Hour
 // SetReasoningContent 按 reasoning item id 缓存 reasoning 全文。
 // itemID 或 content 为空时直接返回 nil（无可缓存内容，属正常情况而非错误）。
 func (c *gatewayCache) SetReasoningContent(ctx context.Context, itemID string, content string, ttl time.Duration) error {
+	if privacy.Enabled() {
+		return nil
+	}
 	if c == nil || c.rdb == nil {
 		return errors.New("gateway cache unavailable")
 	}
@@ -252,6 +256,9 @@ func (c *gatewayCache) SetReasoningContent(ctx context.Context, itemID string, c
 // GetReasoningContent 返回缓存的 reasoning 全文；未命中返回
 // service.ErrReasoningContentNotFound。
 func (c *gatewayCache) GetReasoningContent(ctx context.Context, itemID string) (string, error) {
+	if privacy.Enabled() {
+		return "", service.ErrReasoningContentNotFound
+	}
 	if c == nil || c.rdb == nil {
 		return "", errors.New("gateway cache unavailable")
 	}

@@ -1,6 +1,7 @@
 package antigravity
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,106 +13,89 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/servertiming"
 )
 
-// quotaSummaryBodyLimit bounds the retrieveUserQuotaSummary response (a few hundred bytes today).
-const quotaSummaryBodyLimit = 1 << 20
-
-// QuotaSummaryBucket is one quota window of a group, e.g. "gemini-5h" or "gemini-weekly".
-type QuotaSummaryBucket struct {
-	BucketID          string  `json:"bucketId"`
-	DisplayName       string  `json:"displayName,omitempty"`
-	Window            string  `json:"window"` // "5h" or "weekly"
-	ResetTime         string  `json:"resetTime,omitempty"`
-	RemainingFraction float64 `json:"remainingFraction"`
+// QuotaSummary contains the upstream shared quota pools.
+type QuotaSummary struct {
+	Groups  []QuotaGroup  `json:"groups"`
+	Buckets []QuotaBucket `json:"buckets"`
 }
 
-// QuotaSummaryGroup is a set of models that share their quota windows.
-type QuotaSummaryGroup struct {
-	DisplayName string               `json:"displayName"`
-	Description string               `json:"description,omitempty"`
-	Buckets     []QuotaSummaryBucket `json:"buckets"`
+type QuotaGroup struct {
+	DisplayName string        `json:"displayName"`
+	Buckets     []QuotaBucket `json:"buckets"`
 }
 
-// QuotaSummaryResponse is the retrieveUserQuotaSummary response.
-//
-// Unlike fetchAvailableModels, which reports one fraction per model (whichever window is
-// tighter), this reports every window of every group, so the 5-hour and the weekly limit can
-// be told apart. Within a group all models share both windows.
-type QuotaSummaryResponse struct {
-	Groups      []QuotaSummaryGroup `json:"groups"`
-	Description string              `json:"description,omitempty"`
+type QuotaBucket struct {
+	BucketID          string   `json:"bucketId"`
+	DisplayName       string   `json:"displayName"`
+	Window            string   `json:"window"`
+	RemainingFraction *float64 `json:"remainingFraction"`
+	ResetTime         string   `json:"resetTime"`
+	Disabled          bool     `json:"disabled"`
 }
 
-// RetrieveUserQuotaSummary reads the account's per-group 5-hour and weekly quota windows,
-// falling back across BaseURLs like FetchAvailableModels.
-func (c *Client) RetrieveUserQuotaSummary(ctx context.Context, accessToken, projectID string) (*QuotaSummaryResponse, error) {
-	var lastErr error
-	for urlIdx, baseURL := range BaseURLs {
-		summary, status, err := c.retrieveUserQuotaSummary(ctx, baseURL, accessToken, projectID)
-		if err == nil {
-			DefaultURLAvailability.MarkSuccess(baseURL)
-			return summary, nil
-		}
-		lastErr = err
-		if urlIdx < len(BaseURLs)-1 && shouldFallbackToNextURL(nil, status) {
-			continue
-		}
+// RetrieveUserQuotaSummary uses the accounting endpoint (daily first) and the
+// ACP client identity. Older hub identities can receive only the third-party
+// pool, silently omitting Gemini and Argon. Never follow credentialed redirects.
+func (c *Client) RetrieveUserQuotaSummary(ctx context.Context, accessToken, projectID string, bodyLimit int64) (*QuotaSummary, error) {
+	if c == nil || c.httpClient == nil || bodyLimit <= 0 {
+		return nil, errors.New("quota summary client and positive body limit are required")
+	}
+	if strings.TrimSpace(projectID) == "" {
+		return nil, errors.New("quota summary requires a project ID")
+	}
+	body, err := json.Marshal(FetchAvailableModelsRequest{Project: projectID})
+	if err != nil {
 		return nil, err
 	}
+	httpClient := *c.httpClient
+	httpClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	var lastErr error
+	for _, baseURL := range ForwardBaseURLs() {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1internal:retrieveUserQuotaSummary", bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("User-Agent", "antigravity/acp/1.3.0")
+		resp, err := servertiming.Do(&httpClient, req)
+		if err != nil {
+			lastErr = err
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			continue
+		}
+		data, readErr := io.ReadAll(io.LimitReader(resp.Body, bodyLimit+1))
+		_ = resp.Body.Close()
+		if readErr != nil {
+			return nil, readErr
+		}
+		if int64(len(data)) > bodyLimit {
+			return nil, fmt.Errorf("quota summary exceeds %d bytes", bodyLimit)
+		}
+		if resp.StatusCode != http.StatusOK {
+			if resp.StatusCode == http.StatusForbidden {
+				return nil, &ForbiddenError{StatusCode: resp.StatusCode, Body: string(data)}
+			}
+			lastErr = fmt.Errorf("quota summary HTTP %d", resp.StatusCode)
+			if resp.StatusCode == http.StatusUnauthorized || (resp.StatusCode >= 300 && resp.StatusCode < 400) {
+				return nil, lastErr
+			}
+			continue
+		}
+		var summary QuotaSummary
+		if err := json.Unmarshal(data, &summary); err != nil {
+			return nil, fmt.Errorf("decode quota summary: %w", err)
+		}
+		if len(summary.Groups) == 0 && len(summary.Buckets) == 0 {
+			lastErr = errors.New("quota summary contains no quota groups")
+			continue
+		}
+		return &summary, nil
+	}
+	if lastErr == nil {
+		lastErr = errors.New("quota summary endpoint unavailable")
+	}
 	return nil, lastErr
-}
-
-// RetrieveUserQuotaSummaryFromURL reads the quota summary from one endpoint, without fallback.
-func (c *Client) RetrieveUserQuotaSummaryFromURL(ctx context.Context, baseURL, accessToken, projectID string) (*QuotaSummaryResponse, error) {
-	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	if baseURL == "" {
-		return nil, errors.New("retrieveUserQuotaSummary base URL is required")
-	}
-	summary, _, err := c.retrieveUserQuotaSummary(ctx, baseURL, accessToken, projectID)
-	return summary, err
-}
-
-func (c *Client) retrieveUserQuotaSummary(ctx context.Context, baseURL, accessToken, projectID string) (*QuotaSummaryResponse, int, error) {
-	if c == nil || c.httpClient == nil {
-		return nil, 0, errors.New("antigravity client is not configured")
-	}
-	bodyBytes, err := json.Marshal(FetchAvailableModelsRequest{Project: projectID})
-	if err != nil {
-		return nil, 0, fmt.Errorf("marshal retrieveUserQuotaSummary request: %w", err)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1internal:retrieveUserQuotaSummary", strings.NewReader(string(bodyBytes)))
-	if err != nil {
-		return nil, 0, fmt.Errorf("create retrieveUserQuotaSummary request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", GetUserAgentForContext(ctx))
-
-	resp, err := servertiming.Do(c.httpClient, req)
-	if err != nil {
-		return nil, 0, fmt.Errorf("retrieveUserQuotaSummary request failed: %w", err)
-	}
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, quotaSummaryBodyLimit+1))
-	_ = resp.Body.Close()
-	if err != nil {
-		return nil, resp.StatusCode, fmt.Errorf("read retrieveUserQuotaSummary response: %w", err)
-	}
-	if len(respBody) > quotaSummaryBodyLimit {
-		return nil, resp.StatusCode, fmt.Errorf("retrieveUserQuotaSummary response exceeds %d bytes", quotaSummaryBodyLimit)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, resp.StatusCode, fmt.Errorf("retrieveUserQuotaSummary failed (HTTP %d): %s", resp.StatusCode, truncateQuotaSummaryBody(respBody))
-	}
-	var summary QuotaSummaryResponse
-	if err := json.Unmarshal(respBody, &summary); err != nil {
-		return nil, resp.StatusCode, fmt.Errorf("parse retrieveUserQuotaSummary response: %w", err)
-	}
-	return &summary, resp.StatusCode, nil
-}
-
-func truncateQuotaSummaryBody(body []byte) string {
-	const max = 300
-	if len(body) > max {
-		return string(body[:max]) + "..."
-	}
-	return string(body)
 }

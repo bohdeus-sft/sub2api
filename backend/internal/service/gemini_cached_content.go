@@ -24,6 +24,7 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -738,6 +739,10 @@ func (s *GeminiCachedContentService) Resolve(ctx context.Context, apiKeyID int64
 }
 
 func (s *GeminiCachedContentService) Save(ctx context.Context, record *GeminiCachedContent) error {
+	if privacy.Enabled() {
+		// Keep provider caching available without retaining client-supplied text locally.
+		record.DisplayName = ""
+	}
 	return s.repo.Create(ctx, record)
 }
 

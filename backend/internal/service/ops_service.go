@@ -14,6 +14,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 )
 
 var ErrOpsDisabled = infraerrors.NotFound("OPS_DISABLED", "Ops monitoring is disabled")
@@ -408,6 +409,9 @@ func SanitizeOpsUpstreamErrorsForQueue(entry *OpsInsertErrorLogInput) error {
 }
 
 func (s *OpsService) RecordError(ctx context.Context, entry *OpsInsertErrorLogInput) error {
+	if privacy.Enabled() {
+		return nil
+	}
 	prepared, ok, err := s.prepareErrorLogInput(ctx, entry)
 	if err != nil {
 		log.Printf("[Ops] RecordError prepare failed: %v", err)
@@ -426,6 +430,9 @@ func (s *OpsService) RecordError(ctx context.Context, entry *OpsInsertErrorLogIn
 }
 
 func (s *OpsService) RecordErrorBatch(ctx context.Context, entries []*OpsInsertErrorLogInput) error {
+	if privacy.Enabled() {
+		return nil
+	}
 	if len(entries) == 0 {
 		return nil
 	}

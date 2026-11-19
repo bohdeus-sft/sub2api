@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -540,7 +541,7 @@ func (s *GeminiOAuthService) ExchangeCode(ctx context.Context, input *GeminiExch
 			projectID, tierID, err = s.fetchProjectID(ctx, tokenResp.AccessToken, proxyURL)
 			if err != nil {
 				// 记录警告但不阻断流程，允许后续补充 project_id
-				fmt.Printf("[GeminiOAuth] Warning: Failed to fetch project_id during token exchange: %v\n", err)
+				log.Printf("[GeminiOAuth] Warning: Failed to fetch project_id during token exchange: %v\n", err)
 				logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] WARNING: Failed to fetch project_id: %v", err)
 			} else {
 				logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] Successfully fetched project_id: %s, tier_id: %s", projectID, tierID)
@@ -550,7 +551,7 @@ func (s *GeminiOAuthService) ExchangeCode(ctx context.Context, input *GeminiExch
 			// 用户手动填了 project_id，仍需调用 LoadCodeAssist 获取 tierID
 			_, fetchedTierID, err := s.fetchProjectID(ctx, tokenResp.AccessToken, proxyURL)
 			if err != nil {
-				fmt.Printf("[GeminiOAuth] Warning: Failed to fetch tierID: %v\n", err)
+				log.Printf("[GeminiOAuth] Warning: Failed to fetch tierID: %v\n", err)
 				logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] WARNING: Failed to fetch tier_id: %v", err)
 			} else {
 				tierID = fetchedTierID
@@ -597,7 +598,7 @@ func (s *GeminiOAuthService) ExchangeCode(ctx context.Context, input *GeminiExch
 		tierID, storageInfo, err = s.FetchGoogleOneTier(ctx, tokenResp.AccessToken, proxyURL)
 		if err != nil {
 			// Log warning but don't block - use fallback
-			fmt.Printf("[GeminiOAuth] Warning: Failed to fetch Drive tier: %v\n", err)
+			log.Printf("[GeminiOAuth] Warning: Failed to fetch Drive tier: %v\n", err)
 			logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] WARNING: Failed to fetch Drive tier: %v", err)
 			tierID = ""
 		} else {
@@ -618,7 +619,7 @@ func (s *GeminiOAuthService) ExchangeCode(ctx context.Context, input *GeminiExch
 				logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] Using default tier_id: %s", tierID)
 			}
 		}
-		fmt.Printf("[GeminiOAuth] Google One tierID after normalization: %s\n", tierID)
+		log.Printf("[GeminiOAuth] Google One tierID after normalization: %s\n", tierID)
 
 		// Store Drive info in extra field for caching
 		if storageInfo != nil {
@@ -812,7 +813,7 @@ func (s *GeminiOAuthService) RefreshAccountToken(ctx context.Context, account *A
 		if needDetect {
 			projectID, tierID, err := s.fetchProjectID(ctx, tokenInfo.AccessToken, proxyURL)
 			if err != nil {
-				fmt.Printf("[GeminiOAuth] Warning: failed to auto-detect project/tier: %v\n", err)
+				log.Printf("[GeminiOAuth] Warning: failed to auto-detect project/tier: %v\n", err)
 			} else {
 				if strings.TrimSpace(tokenInfo.ProjectID) == "" && projectID != "" {
 					tokenInfo.ProjectID = projectID
@@ -897,9 +898,9 @@ func (s *GeminiOAuthService) BuildAccountCredentials(tokenInfo *GeminiTokenInfo)
 		// Validate tier_id before storing
 		if err := validateTierID(tokenInfo.TierID); err == nil {
 			creds["tier_id"] = tokenInfo.TierID
-			fmt.Printf("[GeminiOAuth] Storing tier_id: %s\n", tokenInfo.TierID)
+			log.Printf("[GeminiOAuth] Storing tier_id: %s\n", tokenInfo.TierID)
 		} else {
-			fmt.Printf("[GeminiOAuth] Invalid tier_id %s: %v\n", tokenInfo.TierID, err)
+			log.Printf("[GeminiOAuth] Invalid tier_id %s: %v\n", tokenInfo.TierID, err)
 		}
 		// Silently skip invalid tier_id (don't block account creation)
 	}

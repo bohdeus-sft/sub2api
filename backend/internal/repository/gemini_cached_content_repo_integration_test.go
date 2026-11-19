@@ -4,10 +4,12 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/migrations"
 	"github.com/stretchr/testify/require"
 )
 
@@ -117,4 +119,31 @@ func TestGeminiCachedContentRepository_Lifecycle(t *testing.T) {
 	list, err = repo.ListForOwner(ctx, apiKeyID, 42, now, 0, 10)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
+}
+
+func TestGeminiCachedContentNamesMigrationClearsActiveAndDeletedLabels(t *testing.T) {
+	ctx := context.Background()
+	tx := testTx(t)
+	repo := &geminiCachedContentRepository{sql: tx}
+	for _, deleted := range []bool{false, true} {
+		record := &service.GeminiCachedContent{
+			PublicID: fmt.Sprintf("privacy-%t-%d", deleted, time.Now().UnixNano()),
+			UserID:   1, APIKeyID: 910002, GroupID: 42, AccountID: 99,
+			UpstreamName: "cachedContents/privacy", Model: "gemini-3.8-flash",
+			UpstreamModel: "models/gemini-3.8-flash", DisplayName: "private document title",
+			TotalTokenCount: 2000, ExpireTime: time.Now().Add(time.Hour),
+		}
+		require.NoError(t, repo.Create(ctx, record))
+		if deleted {
+			require.NoError(t, repo.SoftDelete(ctx, record.ID))
+		}
+		content, err := migrations.FS.ReadFile("249_personal_clear_gemini_cache_names.sql")
+		require.NoError(t, err)
+		_, err = tx.ExecContext(ctx, string(content))
+		require.NoError(t, err)
+		var displayName, upstreamName string
+		require.NoError(t, tx.QueryRowContext(ctx, "SELECT display_name, upstream_name FROM gemini_cached_contents WHERE id = $1", record.ID).Scan(&displayName, &upstreamName))
+		require.Empty(t, displayName)
+		require.Equal(t, record.UpstreamName, upstreamName, "keep the provider cache binding")
+	}
 }

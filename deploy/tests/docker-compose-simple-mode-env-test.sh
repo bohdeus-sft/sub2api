@@ -21,8 +21,11 @@ for filename in (
     "docker-compose.standalone.yml",
     "docker-compose.dev.yml",
 ):
+    assert not (Path("deploy") / filename).exists(), f"obsolete upstream compose restored: {filename}"
+
+for filename in ("docker-compose.personal.yml",):
     path = Path("deploy") / filename
-    expected = "      - " + key + "=${" + key + ":-}"
+    expected = "      " + key + ": ${" + key + ":-}"
     assert path.read_text().splitlines().count(expected) == 1, \
         f"{path} must pass the override with an empty fallback exactly once"
     for value in (None, "", "true", "false"):
@@ -30,6 +33,9 @@ for filename in (
             os.environ, POSTGRES_PASSWORD="compose-test-password",
             DATABASE_HOST="postgres", DATABASE_PASSWORD="compose-test-password",
             REDIS_HOST="redis",
+            REDIS_PASSWORD="compose-test-password", ADMIN_EMAIL="test@example.invalid",
+            ADMIN_PASSWORD="compose-test-password", JWT_SECRET="compose-test-jwt",
+            TOTP_ENCRYPTION_KEY="compose-test-totp",
         )
         env.pop(key, None)
         if value is not None:

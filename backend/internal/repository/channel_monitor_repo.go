@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"strings"
 	"time"
 
@@ -241,7 +242,7 @@ func (r *channelMonitorRepository) InsertHistoryBatch(ctx context.Context, rows 
 			SetMonitorID(row.MonitorID).
 			SetModel(row.Model).
 			SetStatus(channelmonitorhistory.Status(row.Status)).
-			SetMessage(row.Message).
+			SetMessage(privacy.Diagnostic(row.Message)).
 			SetCheckedAt(row.CheckedAt)
 		if row.LatencyMs != nil {
 			c = c.SetLatencyMs(*row.LatencyMs)

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	pluginv1 "github.com/Wei-Shaw/sub2api/pkg/pluginapi/v1"
 )
 
@@ -83,6 +84,9 @@ func (m *PluginManager) MaxUploadBytes() int64 {
 }
 
 func (m *PluginManager) Start(ctx context.Context) error {
+	if privacy.Enabled() {
+		return nil
+	}
 	m.operationMu.Lock()
 	m.mu.Lock()
 	if m.started {
@@ -555,6 +559,9 @@ func verifyLocalPluginBinary(installation *PluginInstallation, root string) erro
 }
 
 func (m *PluginManager) Enable(ctx context.Context, id int64, acceptUntested bool, rolloutPercent int) (*PluginInstallation, error) {
+	if privacy.Enabled() {
+		return nil, privacy.ErrDisabled
+	}
 	m.operationMu.Lock()
 	defer m.operationMu.Unlock()
 	if rolloutPercent < 1 || rolloutPercent > 100 {

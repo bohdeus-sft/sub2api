@@ -1445,23 +1445,19 @@ export interface UsageProgress {
   limit_requests?: number
 }
 
-// Antigravity 单个模型的配额信息
-export interface AntigravityQuotaWindow {
-  window: string // '5h' or 'weekly'
-  utilization: number // 0-100
-  resets_at: string | null
+export interface AntigravityQuotaBucket {
+  id: string
+  display_name: string
+  window: string
+  utilization: number | null
+  reset_time: string
+  disabled: boolean
 }
 
 export interface AntigravityQuotaGroup {
-  key: string // bucket prefix: 'gemini' or '3p' (Claude and GPT)
-  name: string
-  description?: string
-  windows: AntigravityQuotaWindow[]
-}
-
-export interface AntigravityModelQuota {
-  utilization: number // 使用率 0-100
-  reset_time: string  // 重置时间 ISO8601
+  id: string
+  display_name: string
+  buckets: AntigravityQuotaBucket[]
 }
 
 export interface GrokQuotaWindow {
@@ -1521,9 +1517,8 @@ export interface AccountUsageInfo {
   gemini_shared_minute?: UsageProgress | null
   gemini_pro_minute?: UsageProgress | null
   gemini_flash_minute?: UsageProgress | null
-  antigravity_quota?: Record<string, AntigravityModelQuota> | null
-  // Per-group 5-hour and weekly windows (retrieveUserQuotaSummary); every model of a group shares them.
   antigravity_quota_groups?: AntigravityQuotaGroup[] | null
+  antigravity_quota_summary_status?: 'available' | 'unavailable'
   grok_request_quota?: GrokQuotaWindow | null
   grok_token_quota?: GrokQuotaWindow | null
   grok_retry_after_seconds?: number | null

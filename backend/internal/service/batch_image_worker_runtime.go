@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 )
 
 type BatchImageWorkerRuntime struct {
@@ -62,6 +63,9 @@ func ProvideBatchImageWorkerRuntime(
 }
 
 func (r *BatchImageWorkerRuntime) Start() {
+	if privacy.Enabled() {
+		return
+	}
 	if r == nil || r.worker == nil || r.cfg == nil || !r.cfg.BatchImage.QueueEnabled {
 		return
 	}

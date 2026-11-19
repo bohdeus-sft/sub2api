@@ -2,13 +2,16 @@ package middleware
 
 import (
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,7 +20,14 @@ import (
 // It preserves Gin's broken-pipe handling by not attempting to write a response
 // when the client connection is already gone.
 func Recovery() gin.HandlerFunc {
-	return gin.CustomRecoveryWithWriter(gin.DefaultErrorWriter, func(c *gin.Context, recovered any) {
+	writer := gin.DefaultErrorWriter
+	if privacy.Enabled() {
+		writer = io.Discard
+	}
+	return gin.CustomRecoveryWithWriter(writer, func(c *gin.Context, recovered any) {
+		if privacy.Enabled() {
+			logger.L().Error("http handler panic")
+		}
 		recoveredErr, _ := recovered.(error)
 
 		if isBrokenPipe(recoveredErr) {

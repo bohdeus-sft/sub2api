@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"github.com/Wei-Shaw/sub2api/internal/privacy"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -95,6 +96,12 @@ func NewScheduledTestResultRepository(db *sql.DB) service.ScheduledTestResultRep
 }
 
 func (r *scheduledTestResultRepository) Create(ctx context.Context, result *service.ScheduledTestResult) (*service.ScheduledTestResult, error) {
+	if privacy.Enabled() {
+		safe := *result
+		safe.ResponseText = ""
+		safe.ErrorMessage = privacy.Diagnostic(safe.ErrorMessage)
+		result = &safe
+	}
 	row := r.db.QueryRowContext(ctx, `
 		INSERT INTO scheduled_test_results (plan_id, status, response_text, error_message, latency_ms, started_at, finished_at, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())

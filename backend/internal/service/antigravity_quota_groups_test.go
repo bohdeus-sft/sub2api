@@ -5,75 +5,40 @@ package service
 import (
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/stretchr/testify/require"
 )
 
-func quotaSummaryFixture() *antigravity.QuotaSummaryResponse {
-	return &antigravity.QuotaSummaryResponse{Groups: []antigravity.QuotaSummaryGroup{
-		{DisplayName: "Gemini Models", Description: "Models within this group: Gemini Flash, Gemini Pro",
-			Buckets: []antigravity.QuotaSummaryBucket{
-				{BucketID: "gemini-weekly", Window: "weekly", ResetTime: "2026-11-11T15:52:48Z", RemainingFraction: 0.75},
-				{BucketID: "gemini-5h", Window: "5h", ResetTime: "2026-11-04T20:52:48Z", RemainingFraction: 0.4},
-			}},
-		{DisplayName: "Claude and GPT models",
-			Buckets: []antigravity.QuotaSummaryBucket{
-				{BucketID: "3p-5h", Window: "5h", RemainingFraction: 1},
-				{BucketID: "3p-weekly", Window: "weekly", ResetTime: "bad-time", RemainingFraction: 1.2},
-			}},
-	}}
-}
-
-// fetchAvailableModels reports one fraction per model, whichever window is tighter, so the
-// 5-hour and the weekly limit could not be told apart. The quota summary reports both.
-func TestBuildQuotaGroups_SplitsFiveHourAndWeekly(t *testing.T) {
-	groups := buildAntigravityQuotaGroups(quotaSummaryFixture())
+func TestAntigravitySummaryGroupsFourWindows(t *testing.T) {
+	var summary antigravity.QuotaSummary
+	require.NoError(t, json.Unmarshal([]byte(`{"groups":[{"buckets":[{"bucketId":"3p-weekly","remainingFraction":0.75},{"bucketId":"gemini-weekly","remainingFraction":1},{"bucketId":"gemini-5h","remainingFraction":0,"resetTime":"2026-10-29T23:00:00+03:00"}]}],"buckets":[{"bucketId":"gemini-weekly","remainingFraction":0.1},{"bucketId":"3p-5h","remainingFraction":0.4},{"bucketId":"extra-weekly","remainingFraction":0.5}]}`), &summary))
+	groups := antigravitySummaryGroups(&summary)
 	require.Len(t, groups, 2)
-
-	gemini := groups[0]
-	require.Equal(t, "gemini", gemini.Key)
-	require.Equal(t, "Gemini Models", gemini.Name)
-	// Windows are ordered 5h first, then weekly, whatever order Google returns them in.
-	require.Len(t, gemini.Windows, 2)
-	require.Equal(t, "5h", gemini.Windows[0].Window)
-	require.InDelta(t, 60.0, gemini.Windows[0].Utilization, 0.001)
-	require.Equal(t, "2026-11-04T20:52:48Z", gemini.Windows[0].ResetsAt.UTC().Format(time.RFC3339))
-	require.Equal(t, "weekly", gemini.Windows[1].Window)
-	require.InDelta(t, 25.0, gemini.Windows[1].Utilization, 0.001)
-
-	other := groups[1]
-	require.Equal(t, "3p", other.Key)
-	require.Nil(t, other.Windows[0].ResetsAt, "an idle window has no reset time")
-	require.Nil(t, other.Windows[1].ResetsAt, "an unparseable reset time is dropped, not fatal")
-	require.Equal(t, 0.0, other.Windows[1].Utilization, "a fraction above 1 never shows negative usage")
+	require.Equal(t, "gemini", groups[0].ID)
+	require.Equal(t, "3p", groups[1].ID)
+	for _, group := range groups {
+		require.Len(t, group.Buckets, 2)
+		require.Equal(t, "5h", group.Buckets[0].Window)
+		require.Equal(t, "weekly", group.Buckets[1].Window)
+	}
+	require.Equal(t, 100.0, *groups[0].Buckets[0].Utilization)
+	require.Equal(t, "2026-10-29T20:00:00Z", groups[0].Buckets[0].ResetTime)
+	require.Zero(t, *groups[0].Buckets[1].Utilization)
+	require.InDelta(t, 60.0, *groups[1].Buckets[0].Utilization, 0.001)
+	require.InDelta(t, 25.0, *groups[1].Buckets[1].Utilization, 0.001)
 }
 
-func TestBuildQuotaGroups_EmptyOrNil(t *testing.T) {
-	require.Nil(t, buildAntigravityQuotaGroups(nil))
-	require.Nil(t, buildAntigravityQuotaGroups(&antigravity.QuotaSummaryResponse{}))
-	require.Nil(t, buildAntigravityQuotaGroups(&antigravity.QuotaSummaryResponse{Groups: []antigravity.QuotaSummaryGroup{{DisplayName: "x"}}}),
-		"a group without buckets is not shown")
-}
-
-func TestUsageInfo_QuotaGroupsJSON(t *testing.T) {
-	info := &UsageInfo{AntigravityQuotaGroups: buildAntigravityQuotaGroups(quotaSummaryFixture())}
-	raw, err := json.Marshal(info)
-	require.NoError(t, err)
-	var decoded map[string]any
-	require.NoError(t, json.Unmarshal(raw, &decoded))
-	groups, ok := decoded["antigravity_quota_groups"].([]any)
-	require.True(t, ok, "antigravity_quota_groups must be in the JSON: %s", raw)
-	first := groups[0].(map[string]any)
-	require.Equal(t, "gemini", first["key"])
-	window := first["windows"].([]any)[0].(map[string]any)
-	require.Equal(t, "5h", window["window"])
-	require.Contains(t, window, "resets_at")
-	require.Contains(t, window, "utilization")
-
-	// Absent when there is no summary, so other platforms' JSON is unchanged.
-	raw, err = json.Marshal(&UsageInfo{})
-	require.NoError(t, err)
-	require.NotContains(t, string(raw), "antigravity_quota_groups")
+func TestAntigravitySummaryGroupsUnknownAndDisabled(t *testing.T) {
+	var summary antigravity.QuotaSummary
+	require.NoError(t, json.Unmarshal([]byte(`{"buckets":[{"bucketId":"gemini-5h","remainingFraction":null,"resetTime":"invalid"},{"bucketId":"gemini-weekly","remainingFraction":2},{"bucketId":"3p-5h","remainingFraction":0,"disabled":true}]}`), &summary))
+	groups := antigravitySummaryGroups(&summary)
+	require.Len(t, groups, 2)
+	require.Nil(t, groups[0].Buckets[0].Utilization)
+	require.Empty(t, groups[0].Buckets[0].ResetTime)
+	require.Nil(t, groups[0].Buckets[1].Utilization)
+	require.True(t, groups[1].Buckets[0].Disabled)
+	require.Nil(t, groups[1].Buckets[1].Utilization)
+	require.Nil(t, antigravitySummaryGroups(nil))
+	require.Empty(t, antigravitySummaryGroups(&antigravity.QuotaSummary{}))
 }

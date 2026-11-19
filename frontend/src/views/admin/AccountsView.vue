@@ -326,6 +326,11 @@
               @usage-loaded="handleAccountUsageLoaded(row.id, $event)"
             />
           </template>
+          <template #cell-usage_updated_at="{ row }">
+            <span class="whitespace-nowrap text-sm text-gray-500 dark:text-dark-400">
+              {{ formatUsageUpdatedAt(row) }}
+            </span>
+          </template>
           <template #cell-proxy="{ row }">
             <div class="flex flex-col gap-1">
               <div v-if="row.proxy" class="flex items-center gap-2">
@@ -491,7 +496,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'vue'
-import { useIntervalFn } from '@vueuse/core'
+import { useIntervalFn, useNow } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -780,11 +785,23 @@ const setUsageBatchLoading = (accountID: number, loadingState: boolean) => {
   }
 }
 
+const latestOpenAIUsage = (accountID: number, incoming: AccountUsageInfo | null): AccountUsageInfo | null => {
+  const previous = usageBatchByAccountId.value[String(accountID)]
+  if (!previous || !accounts.value.some(account => account.id === accountID && account.platform === 'openai')) {
+    return incoming
+  }
+  const previousAt = Date.parse(previous.updated_at ?? '')
+  const incomingAt = Date.parse(incoming?.updated_at ?? '')
+  return Number.isFinite(previousAt) && (!Number.isFinite(incomingAt) || previousAt > incomingAt)
+    ? previous
+    : incoming
+}
+
 const setUsageBatchState = (accountID: number, usage: AccountUsageInfo | null, error: string | null) => {
   const key = String(accountID)
   usageBatchByAccountId.value = {
     ...usageBatchByAccountId.value,
-    [key]: usage
+    [key]: latestOpenAIUsage(accountID, usage)
   }
   usageBatchErrorByAccountId.value = {
     ...usageBatchErrorByAccountId.value,
@@ -827,11 +844,11 @@ const flushQueuedUsageBatch = async () => {
         continue
       }
       const usage = usageMap[key] ?? null
-      nextUsage[key] = usage
+      nextUsage[key] = latestOpenAIUsage(accountID, usage)
       nextErrors[key] = errorMap[key] ?? null
       nextLoading[key] = false
-      if (usage) {
-        usageBatchCache.set(accountID, { data: usage, ts: now })
+      if (nextUsage[key]) {
+        usageBatchCache.set(accountID, { data: nextUsage[key], ts: now })
       } else {
         usageBatchCache.delete(accountID)
       }
@@ -1820,6 +1837,34 @@ function getAntigravityTierClass(row: any): string {
   }
 }
 
+// OpenAI's usage timestamp is set when quota headers are observed upstream, not
+// when local window statistics or a cached table row are read.
+const getUsageUpdatedAt = (account: AccountListItem): string | null => {
+  const timestamps = (account.platform === 'openai'
+    ? [account.extra?.codex_usage_updated_at, usageBatchByAccountId.value[String(account.id)]?.updated_at]
+    : [
+        usageBatchByAccountId.value[String(account.id)]?.updated_at,
+        account.extra?.codex_usage_updated_at,
+        account.extra?.passive_usage_sampled_at,
+        account.extra?.[`${account.platform}_usage_updated_at`]
+      ]).filter((value): value is string =>
+    typeof value === 'string' && Number.isFinite(Date.parse(value))
+  )
+  return timestamps.reduce<string | null>((latest, value) =>
+    !latest || Date.parse(value) > Date.parse(latest) ? value : latest, null)
+}
+
+const usageDisplayNow = useNow({ interval: 60_000 })
+const formatUsageUpdatedAt = (account: AccountListItem): string => {
+  const updatedAt = getUsageUpdatedAt(account)
+  if (!updatedAt) return '—'
+  const time = formatDateTime(updatedAt, {
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  })
+  const minutes = Math.max(0, Math.floor((usageDisplayNow.value.getTime() - Date.parse(updatedAt)) / 60_000))
+  return `${time} · ${t('common.time.minutesAgo', { n: minutes })}`
+}
+
 // All available columns
 const allColumns = computed(() => {
   const c = [
@@ -1836,6 +1881,7 @@ const allColumns = computed(() => {
     c.push({ key: 'groups', label: t('admin.accounts.columns.groups'), sortable: false })
   }
   c.push({ key: 'usage', label: t('admin.accounts.columns.usageWindows'), sortable: false })
+  c.push({ key: 'usage_updated_at', label: t('admin.accounts.columns.usageUpdatedAt'), sortable: false })
   c.push(
     { key: 'proxy', label: t('admin.accounts.columns.proxy'), sortable: false },
     { key: 'priority', label: t('admin.accounts.columns.priority'), sortable: true },

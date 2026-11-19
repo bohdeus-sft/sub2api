@@ -36,35 +36,41 @@ describe('useModelWhitelist', () => {
     }
   })
 
-  it('openai 模型列表包含 GPT-5.4 官方快照', () => {
+  it('OpenAI suggestions retain the curated models and add GPT-6.2', () => {
     const models = getModelsByPlatform('openai')
 
-    expect(models).toContain('gpt-5.4')
-    expect(models).toContain('gpt-5.4-mini')
-    expect(models).toContain('gpt-5.4-2026-03-05')
+    expect(models).not.toContain('gpt-5.4')
+    expect(models).not.toContain('gpt-5.4-mini')
+    expect(models).not.toContain('gpt-5.4-2026-03-05')
     expect(models).toContain('codex-auto-review')
-    expect(models).toContain('gpt-5.6')
-    expect(models).toContain('gpt-6')
-    expect(models).toContain('gpt-6-astra')
+    expect(models).not.toContain('gpt-5.6')
+    expect(models).not.toContain('gpt-6')
+    expect(models).not.toContain('gpt-6-astra')
     expect(models).toContain('gpt-6.2-sol')
     expect(models).toContain('gpt-6.2-astra')
-    expect(models).toContain('gpt-6.1-sol')
+    expect(models).not.toContain('gpt-6.1-sol')
     expect(models).toContain('gpt-6.1-terra')
     expect(models).toContain('gpt-6-sol')
     expect(models).toContain('gpt-6-luna')
-    expect(models).toContain('gpt-image-2.6-flare')
-    expect(models).toContain('gpt-image-2.6-sunburst')
+    expect(models).toContain('gpt-5.6-sol')
+    expect(models).not.toContain('gpt-5.6-terra')
+    expect(models).toContain('gpt-5.5')
   })
 
-  it('openai 预设映射包含 GPT-6 别名和 Astra', () => {
-    expect(getPresetMappingsByPlatform('openai')).toEqual(expect.arrayContaining([
+  it('OpenAI presets retain curated mappings and add GPT-6.2', () => {
+    const mappings = getPresetMappingsByPlatform('openai')
+
+    expect(mappings).toEqual(expect.arrayContaining([
       expect.objectContaining({ label: 'GPT-6.2 Sol', from: 'gpt-6.2-sol', to: 'gpt-6.2-sol' }),
       expect.objectContaining({ label: 'GPT-6.2 Astra', from: 'gpt-6.2-astra', to: 'gpt-6.2-astra' }),
-      expect.objectContaining({ label: 'GPT-6.1 Sol', from: 'gpt-6.1-sol', to: 'gpt-6.1-sol' }),
       expect.objectContaining({ label: 'GPT-6.1 Terra', from: 'gpt-6.1-terra', to: 'gpt-6.1-terra' }),
-      expect.objectContaining({ label: 'GPT-6', from: 'gpt-6', to: 'gpt-6' }),
-      expect.objectContaining({ label: 'GPT-6 Astra', from: 'gpt-6-astra', to: 'gpt-6-astra' })
+      expect.objectContaining({ label: 'GPT-5.6 Sol', from: 'gpt-5.6-sol', to: 'gpt-5.6-sol' }),
+      expect.objectContaining({ label: 'GPT-5.5', from: 'gpt-5.5', to: 'gpt-5.5' })
     ]))
+
+    for (const model of ['gpt-5.6-terra', 'gpt-6.1-sol', 'gpt-6-astra', 'gpt-6']) {
+      expect(mappings.some(mapping => mapping.from === model || mapping.to === model)).toBe(false)
+    }
   })
 
   it('openai 模型列表不再暴露已下线的 ChatGPT 登录 Codex 模型', () => {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 
@@ -56,9 +55,9 @@ func (f *AntigravityQuotaFetcher) FetchQuota(ctx context.Context, account *Accou
 	if err != nil {
 		return nil, fmt.Errorf("create antigravity client failed: %w", err)
 	}
-
-	// 调用 API 获取配额
-	modelsResp, modelsRaw, err := client.FetchAvailableModels(ctx, accessToken, projectID, resolveModelsListReadLimit(f.cfg))
+	summaryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	summary, err := client.RetrieveUserQuotaSummary(summaryCtx, accessToken, projectID, resolveModelsListReadLimit(f.cfg))
 	if err != nil {
 		// 403 Forbidden: 不报错，返回 is_forbidden 标记
 		var forbiddenErr *antigravity.ForbiddenError
@@ -85,19 +84,10 @@ func (f *AntigravityQuotaFetcher) FetchQuota(ctx context.Context, account *Accou
 	tierRaw, tierNormalized, loadResp := f.fetchSubscriptionTier(ctx, client, accessToken)
 
 	// 转换为 UsageInfo
-	usageInfo := f.buildUsageInfo(modelsResp, tierRaw, tierNormalized, loadResp)
-
-	// The per-group 5-hour and weekly windows. Not on the critical path: without them the
-	// per-model figures above are shown as before.
-	if summary, err := client.RetrieveUserQuotaSummary(ctx, accessToken, projectID); err != nil {
-		slog.Warn("failed to fetch antigravity quota summary", "account_id", account.ID, "error", err)
-	} else {
-		usageInfo.AntigravityQuotaGroups = buildAntigravityQuotaGroups(summary)
-	}
+	usageInfo := f.buildUsageInfo(summary, tierRaw, tierNormalized, loadResp)
 
 	return &QuotaResult{
 		UsageInfo: usageInfo,
-		Raw:       modelsRaw,
 	}, nil
 }
 
@@ -136,72 +126,19 @@ func normalizeTier(raw string) string {
 	}
 }
 
-// buildUsageInfo 将 API 响应转换为 UsageInfo。
-func (f *AntigravityQuotaFetcher) buildUsageInfo(modelsResp *antigravity.FetchAvailableModelsResponse, tierRaw, tierNormalized string, loadResp *antigravity.LoadCodeAssistResponse) *UsageInfo {
+// buildUsageInfo exposes only the two shared pools and their 5-hour/weekly windows.
+func (f *AntigravityQuotaFetcher) buildUsageInfo(summary *antigravity.QuotaSummary, tierRaw, tierNormalized string, loadResp *antigravity.LoadCodeAssistResponse) *UsageInfo {
 	now := time.Now()
 	info := &UsageInfo{
-		UpdatedAt:               &now,
-		AntigravityQuota:        make(map[string]*AntigravityModelQuota),
-		AntigravityQuotaDetails: make(map[string]*AntigravityModelDetail),
-		SubscriptionTier:        tierNormalized,
-		SubscriptionTierRaw:     tierRaw,
+		UpdatedAt:                     &now,
+		AntigravityQuotaGroups:        antigravitySummaryGroups(summary),
+		AntigravityQuotaSummaryStatus: "unavailable",
+		SubscriptionTier:              tierNormalized,
+		SubscriptionTierRaw:           tierRaw,
 	}
-
-	// 遍历所有模型，填充 AntigravityQuota 和 AntigravityQuotaDetails
-	for modelName, modelInfo := range modelsResp.Models {
-		if modelInfo.QuotaInfo == nil {
-			continue
-		}
-
-		// remainingFraction 是剩余比例 (0.0-1.0)，转换为使用率百分比
-		utilization := int((1.0 - modelInfo.QuotaInfo.RemainingFraction) * 100)
-
-		info.AntigravityQuota[modelName] = &AntigravityModelQuota{
-			Utilization: utilization,
-			ResetTime:   modelInfo.QuotaInfo.ResetTime,
-		}
-
-		// 填充模型详细能力信息
-		detail := &AntigravityModelDetail{
-			DisplayName:        modelInfo.DisplayName,
-			SupportsImages:     modelInfo.SupportsImages,
-			SupportsThinking:   modelInfo.SupportsThinking,
-			ThinkingBudget:     modelInfo.ThinkingBudget,
-			Recommended:        modelInfo.Recommended,
-			MaxTokens:          modelInfo.MaxTokens,
-			MaxOutputTokens:    modelInfo.MaxOutputTokens,
-			SupportedMimeTypes: modelInfo.SupportedMimeTypes,
-		}
-		info.AntigravityQuotaDetails[modelName] = detail
+	if len(info.AntigravityQuotaGroups) > 0 {
+		info.AntigravityQuotaSummaryStatus = "available"
 	}
-
-	// 废弃模型转发规则
-	if len(modelsResp.DeprecatedModelIDs) > 0 {
-		info.ModelForwardingRules = make(map[string]string, len(modelsResp.DeprecatedModelIDs))
-		for oldID, deprecated := range modelsResp.DeprecatedModelIDs {
-			info.ModelForwardingRules[oldID] = deprecated.NewModelID
-		}
-	}
-
-	// 同时设置 FiveHour 用于兼容展示（取主要模型）
-	priorityModels := []string{"claude-sonnet-4-20250514", "claude-sonnet-4", "gemini-2.5-pro"}
-	for _, modelName := range priorityModels {
-		if modelInfo, ok := modelsResp.Models[modelName]; ok && modelInfo.QuotaInfo != nil {
-			utilization := (1.0 - modelInfo.QuotaInfo.RemainingFraction) * 100
-			progress := &UsageProgress{
-				Utilization: utilization,
-			}
-			if modelInfo.QuotaInfo.ResetTime != "" {
-				if resetTime, err := time.Parse(time.RFC3339, modelInfo.QuotaInfo.ResetTime); err == nil {
-					progress.ResetsAt = &resetTime
-					progress.RemainingSeconds = int(time.Until(resetTime).Seconds())
-				}
-			}
-			info.FiveHour = progress
-			break
-		}
-	}
-
 	if loadResp != nil {
 		for _, credit := range loadResp.GetAvailableCredits() {
 			info.AICredits = append(info.AICredits, AICredit{
@@ -213,53 +150,6 @@ func (f *AntigravityQuotaFetcher) buildUsageInfo(modelsResp *antigravity.FetchAv
 	}
 
 	return info
-}
-
-// buildAntigravityQuotaGroups turns a quota summary into display groups, each with its
-// windows ordered 5h then weekly. Returns nil when there is nothing to show.
-func buildAntigravityQuotaGroups(summary *antigravity.QuotaSummaryResponse) []*AntigravityQuotaGroup {
-	if summary == nil {
-		return nil
-	}
-	windowOrder := map[string]int{"5h": 0, "weekly": 1}
-	var groups []*AntigravityQuotaGroup
-	for _, group := range summary.Groups {
-		if len(group.Buckets) == 0 {
-			continue
-		}
-		out := &AntigravityQuotaGroup{Name: group.DisplayName, Description: group.Description}
-		for _, bucket := range group.Buckets {
-			if out.Key == "" {
-				if i := strings.LastIndex(bucket.BucketID, "-"); i > 0 {
-					out.Key = bucket.BucketID[:i]
-				}
-			}
-			used := (1.0 - bucket.RemainingFraction) * 100
-			if used < 0 {
-				used = 0
-			}
-			window := &AntigravityQuotaWindow{Window: bucket.Window, Utilization: used}
-			if bucket.ResetTime != "" {
-				if resetAt, err := time.Parse(time.RFC3339, bucket.ResetTime); err == nil {
-					window.ResetsAt = &resetAt
-				}
-			}
-			out.Windows = append(out.Windows, window)
-		}
-		sort.SliceStable(out.Windows, func(i, j int) bool {
-			oi, iok := windowOrder[out.Windows[i].Window]
-			oj, jok := windowOrder[out.Windows[j].Window]
-			if !iok {
-				oi = len(windowOrder)
-			}
-			if !jok {
-				oj = len(windowOrder)
-			}
-			return oi < oj
-		})
-		groups = append(groups, out)
-	}
-	return groups
 }
 
 // GetProxyURL 获取账户的代理 URL
